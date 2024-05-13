@@ -43,7 +43,7 @@ If you want to test whether everything is working you can download a short datas
 
 ```bash
 wget https://huggingface.co/datasets/collabora/monado-slam-datasets/resolve/main/M_monado_datasets/MI_valve_index/MIO_others/MIO09_short_1_updown.zip
-unzip -d MIO09_short_1_updown MIO09_short_1_updown.zip
+unzip MIO09_short_1_updown.zip
 ```
 
 - **Try it standalone with a dataset (requires extra binaries)**

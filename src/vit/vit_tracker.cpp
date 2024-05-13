@@ -45,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/vi_estimator/vio_estimator.h>
 #include <basalt/calibration/calibration.hpp>
 #include <basalt/vit/vit_tracker.hpp>
+#include <vit_implementation_helper.hpp>
 #include "vit_tracker_ui.hpp"
 
 #include <tbb/concurrent_queue.h>
@@ -103,9 +104,18 @@ using std::to_string;
 using std::vector;
 
 struct Tracker::Implementation {
-  static const uint32_t caps = VIT_TRACKER_CAPABILITY_CAMERA_CALIBRATION | VIT_TRACKER_CAPABILITY_IMU_CALIBRATION;
-  static const uint32_t pose_caps = VIT_TRACKER_POSE_CAPABILITY_TIMING | VIT_TRACKER_POSE_CAPABILITY_FEATURES;
-  uint32_t enabled_pose_caps = 0;
+  static constexpr vit_tracker_extension_set_t exts{
+      .has_add_camera_calibration = true,
+      .has_add_imu_calibration = true,
+      .has_pose_timing = true,
+      .has_pose_features = true,
+  };
+  vit_tracker_extension_set_t enabled_exts{
+      .has_add_camera_calibration = true,
+      .has_add_imu_calibration = true,
+      .has_pose_timing = false,
+      .has_pose_features = false,
+  };
 
   // Options parsed from unified config file
   bool show_gui = false;
@@ -175,29 +185,31 @@ struct Tracker::Implementation {
     monado_out_state_queue.set_capacity(32);
   }
 
-  vit::Result get_caps(vit::TrackerCapability *out_caps) {
-    *out_caps = static_cast<vit::TrackerCapability>(caps);
+  static vit::Result get_supported_extensions(vit::TrackerExtensionSet *out_exts) {
+    *out_exts = exts;
     return vit::Result::VIT_SUCCESS;
   }
 
-  vit::Result get_pose_caps(vit::TrackerPoseCapability *out_caps) {
-    *out_caps = static_cast<vit::TrackerPoseCapability>(pose_caps);
+  vit::Result get_enabled_extensions(vit::TrackerExtensionSet *out_exts) const {
+    *out_exts = enabled_exts;
     return vit::Result::VIT_SUCCESS;
   }
 
-  vit::Result set_pose_caps(const vit::TrackerPoseCapability set_caps, bool value) {
-    const uint32_t c = static_cast<uint32_t>(set_caps);
+  vit::Result enable_extension(vit::TrackerExtension ext, bool enable) {
+    int64_t ext_index = (int64_t)ext;
+    if (ext_index >= VIT_TRACKER_EXTENSION_COUNT) {
+      std::cout << "Invalid extension: " << ext << std::endl;
+      return vit::Result::VIT_ERROR_INVALID_VALUE;
+    }
 
-    if ((caps & c) == 0) {
-      std::cout << "CAP IS NOT SUPPORTED\n";
+    bool supported = ((bool *)&exts)[ext_index];
+    if (!supported) {
+      std::cout << "Unsupported extension: " << ext << std::endl;
       return vit::Result::VIT_ERROR_NOT_SUPPORTED;
     }
 
-    if (value) {
-      enabled_pose_caps |= c;
-    } else {
-      enabled_pose_caps &= ~(c);
-    }
+    bool *enabled = &((bool *)&enabled_exts)[ext_index];
+    *enabled = enable;
 
     return vit::Result::VIT_SUCCESS;
   }
@@ -453,8 +465,8 @@ struct Tracker::Implementation {
       partial_frame->t_ns = s->timestamp;
 
       // Initialize stats
-      partial_frame->stats.enabled_caps = enabled_pose_caps;
-      if ((enabled_pose_caps & VIT_TRACKER_POSE_CAPABILITY_TIMING) != 0) {
+      partial_frame->stats.enabled_exts = enabled_exts;
+      if (enabled_exts.has_pose_timing) {
         partial_frame->stats.ts = s->timestamp;
         partial_frame->stats.timings.reserve(TITLES_SIZE);
         partial_frame->stats.timing_titles = timing_titles;
@@ -462,7 +474,7 @@ struct Tracker::Implementation {
         partial_frame->addTime("tracker_received");
       }
 
-      if ((enabled_pose_caps & VIT_TRACKER_POSE_CAPABILITY_FEATURES) != 0) {
+      if (enabled_exts.has_pose_features) {
         partial_frame->stats.features_per_cam.resize(cam_count);
       }
     } else {
@@ -521,7 +533,7 @@ struct Tracker::Implementation {
   }
 
   static vit::Result get_timing_titles(vit_tracker_timing_titles *out_titles) {
-    if ((pose_caps & VIT_TRACKER_POSE_CAPABILITY_TIMING) == 0) {
+    if (!exts.has_pose_timing) {
       return vit::Result::VIT_ERROR_NOT_SUPPORTED;
     }
 
@@ -587,12 +599,16 @@ vit::Result Tracker::has_image_format(vit::ImageFormat fmt, bool *out) const {
   return vit::Result::VIT_ERROR_INVALID_VALUE;
 }
 
-vit::Result Tracker::get_capabilities(vit::TrackerCapability *out) const { return impl_->get_caps(out); }
+vit::Result Tracker::get_supported_extensions(vit::TrackerExtensionSet *out) const {
+  return impl_->get_supported_extensions(out);
+}
 
-vit::Result Tracker::get_pose_capabilities(vit::TrackerPoseCapability *out) const { return impl_->get_pose_caps(out); }
+vit::Result Tracker::get_enabled_extensions(vit::TrackerExtensionSet *out) const {
+  return impl_->get_enabled_extensions(out);
+}
 
-vit::Result Tracker::set_pose_capabilities(vit::TrackerPoseCapability caps, bool value) {
-  return impl_->set_pose_caps(caps, value);
+vit::Result Tracker::enable_extension(vit::TrackerExtension ext, bool enable) {
+  return impl_->enable_extension(ext, enable);
 }
 
 vit::Result Tracker::start() {
@@ -668,7 +684,7 @@ struct Pose::Implementation {
 
   vit::Result get_timing(vit::PoseTiming *out_timing) const {
     const vit::TimeStats &stats = state->input_images->stats;
-    if ((stats.enabled_caps & VIT_TRACKER_POSE_CAPABILITY_TIMING) == 0) {
+    if (!stats.enabled_exts.has_pose_timing) {
       return vit::Result::VIT_ERROR_NOT_ENABLED;
     }
 
@@ -679,7 +695,7 @@ struct Pose::Implementation {
 
   vit::Result get_features(uint32_t camera_index, vit::PoseFeatures *out_features) const {
     const vit::TimeStats &stats = state->input_images->stats;
-    if ((stats.enabled_caps & VIT_TRACKER_POSE_CAPABILITY_FEATURES) == 0) {
+    if (!stats.enabled_exts.has_pose_features) {
       return vit::Result::VIT_ERROR_NOT_ENABLED;
     }
 

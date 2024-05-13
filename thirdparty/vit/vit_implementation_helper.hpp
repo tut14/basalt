@@ -21,8 +21,8 @@ namespace vit {
 typedef vit_result_t Result;
 typedef vit_image_format_t ImageFormat;
 typedef vit_camera_distortion_t CameraDistortion;
-typedef vit_tracker_capability_t TrackerCapability;
-typedef vit_tracker_pose_capability_t TrackerPoseCapability;
+typedef vit_tracker_extension_t TrackerExtension;
+typedef vit_tracker_extension_set_t TrackerExtensionSet;
 typedef vit_tracker_timing_titles TrackerTimingTitles;
 typedef vit_tracker_t Tracker;
 typedef vit_config_t Config;
@@ -40,18 +40,15 @@ typedef vit_inertial_calibration_t InertialCalibration;
 typedef vit_imu_calibration_t ImuCalibration;
 
 struct TimeStats {
-	uint32_t enabled_caps = 0;
+	TrackerExtensionSet enabled_exts{};
 	int64_t ts = INT64_MIN;
 	std::vector<int64_t> timings{};
 	std::vector<std::vector<vit::PoseFeature>> features_per_cam{};
 	const char **timing_titles = nullptr;
 
-	TimeStats(size_t cams) { features_per_cam.reserve(cams); }
-	TimeStats() = default;
-
   public:
 	void addTime(const std::string_view name, int64_t ts = INT64_MIN) {
-		if ((enabled_caps & VIT_TRACKER_POSE_CAPABILITY_TIMING) == 0) {
+		if (!enabled_exts.has_pose_timing) {
 			return;
 		}
 
@@ -72,7 +69,7 @@ struct TimeStats {
 	}
 
 	void addFeature(size_t cam, const vit::PoseFeature &feature) {
-		if ((enabled_caps & VIT_TRACKER_POSE_CAPABILITY_FEATURES) == 0) {
+		if (!enabled_exts.has_pose_features) {
 			return;
 		}
 
@@ -93,9 +90,9 @@ struct vit_tracker {
 	virtual ~vit_tracker() = default;
 
 	virtual vit_result_t has_image_format(vit_image_format_t fmt, bool *out_supported) const = 0;
-	virtual vit_result_t get_capabilities(vit_tracker_capability_t *out_capabilities) const = 0;
-	virtual vit_result_t get_pose_capabilities(vit_tracker_pose_capability_t *out_capabilities) const = 0;
-	virtual vit_result_t set_pose_capabilities(vit_tracker_pose_capability_t capabilities, bool value) = 0;
+	virtual vit_result_t get_supported_extensions(vit_tracker_extension_set_t *out_extensions) const = 0;
+	virtual vit_result_t get_enabled_extensions(vit_tracker_extension_set_t *out_extensions) const = 0;
+	virtual vit_result_t enable_extension(vit_tracker_extension_t extension, bool enabled) = 0;
 	virtual vit_result_t start() = 0;
 	virtual vit_result_t stop() = 0;
 	virtual vit_result_t reset() = 0;

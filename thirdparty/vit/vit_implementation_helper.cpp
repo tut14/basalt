@@ -31,19 +31,19 @@ vit_result_t vit_tracker_has_image_format(const vit_tracker_t *tracker, vit_imag
 	return t->has_image_format(image_format, out_supported);
 }
 
-vit_result_t vit_tracker_get_capabilities(const vit_tracker_t *tracker, vit_tracker_capability_t *out_caps) {
+vit_result_t vit_tracker_get_supported_extensions(const vit_tracker_t *tracker, vit_tracker_extension_set_t *out_exts) {
 	const vit::Tracker *t = static_cast<const vit::Tracker *>(tracker);
-	return t->get_capabilities(out_caps);
+	return t->get_supported_extensions(out_exts);
 }
 
-vit_result_t vit_tracker_get_pose_capabilities(const vit_tracker_t *tracker, vit_tracker_pose_capability_t *out_caps) {
+vit_result_t vit_tracker_get_enabled_extensions(const vit_tracker_t *tracker, vit_tracker_extension_set_t *out_exts) {
 	const vit::Tracker *t = static_cast<const vit::Tracker *>(tracker);
-	return t->get_pose_capabilities(out_caps);
+	return t->get_enabled_extensions(out_exts);
 }
 
-vit_result_t vit_tracker_set_pose_capabilities(vit_tracker_t *tracker, vit_tracker_pose_capability_t caps, bool value) {
+vit_result_t vit_tracker_enable_extension(vit_tracker_t *tracker, vit_tracker_extension_t ext, bool value) {
 	vit::Tracker *t = static_cast<vit::Tracker *>(tracker);
-	return t->set_pose_capabilities(caps, value);
+	return t->enable_extension(ext, value);
 }
 
 vit_result_t vit_tracker_start(vit_tracker_t *tracker) {

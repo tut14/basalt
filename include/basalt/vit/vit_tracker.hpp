@@ -56,9 +56,9 @@ struct Tracker final : vit::Tracker {
   ~Tracker() override = default;
 
   vit::Result has_image_format(vit::ImageFormat fmt, bool *out_supported) const override;
-  vit::Result get_capabilities(vit::TrackerCapability *out_caps) const override;
-  vit::Result get_pose_capabilities(vit::TrackerPoseCapability *out_caps) const override;
-  vit::Result set_pose_capabilities(vit::TrackerPoseCapability caps, bool value) override;
+  vit::Result get_supported_extensions(vit::TrackerExtensionSet *out_exts) const override;
+  vit::Result get_enabled_extensions(vit::TrackerExtensionSet *out_exts) const override;
+  vit::Result enable_extension(vit::TrackerExtension extension, bool enabled) override;
   vit::Result start() override;
   vit::Result stop() override;
   vit::Result reset() override;

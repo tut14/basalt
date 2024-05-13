@@ -400,13 +400,13 @@ bool SqrtKeypointVoEstimator<Scalar_>::measure(const OpticalFlowResult::Ptr& opt
   optimize_and_marg(opt_flow_meas->input_images, num_points_connected, lost_landmaks);
 
   size_t num_cams = opt_flow_meas->keypoints.size();
-  bool features_cap = (opt_flow_meas->input_images->stats.enabled_caps & VIT_TRACKER_POSE_CAPABILITY_FEATURES) != 0;
+  bool features_ext = opt_flow_meas->input_images->stats.enabled_exts.has_pose_features;
   bool avg_depth_needed =
       opt_flow_depth_guess_queue && config.optical_flow_matching_guess_type == MatchingGuessType::REPROJ_AVG_DEPTH;
 
   using Projections = std::vector<Eigen::aligned_vector<Eigen::Vector4d>>;
   std::shared_ptr<Projections> projections = nullptr;
-  if (features_cap || out_vis_queue || avg_depth_needed) {
+  if (features_ext || out_vis_queue || avg_depth_needed) {
     projections = std::make_shared<Projections>(num_cams);
     computeProjections(*projections, last_state_t_ns);
   }
@@ -436,7 +436,7 @@ bool SqrtKeypointVoEstimator<Scalar_>::measure(const OpticalFlowResult::Ptr& opt
       opt_flow_depth_guess_queue->push(avg_depth);
     }
 
-    if (features_cap) {
+    if (features_ext) {
       for (size_t i = 0; i < num_cams; i++) {
         for (const Eigen::Vector4d& v : projections->at(i)) {
           vit::PoseFeature lm = {};
