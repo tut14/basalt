@@ -58,6 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/io/dataset_io.h>
 #include <basalt/io/marg_data_io.h>
 #include <basalt/spline/se3_spline.h>
+#include <basalt/utils/vis_utils.h>
 #include <basalt/vi_estimator/vio_estimator.h>
 #include <basalt/calibration/calibration.hpp>
 
@@ -269,7 +270,7 @@ int main(int argc, char** argv) {
   }
 
   if (show_gui) {
-    pangolin::CreateWindowAndBind("RS T265 Vio", 1800, 1000);
+    pangolin::CreateWindowAndBind("RS T265 Vio", 1800, 1000, basalt::vis::default_win_params);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -396,12 +397,12 @@ void draw_image_overlay(pangolin::View& v, size_t cam_id) {
 
           pangolin::glDrawCirclePerimeter(c[0], c[1], radius);
 
-          if (show_ids) pangolin::GlFont::I().Text("%d", int(c[3])).Draw(c[0], c[1]);
+          if (show_ids) FONT.Text("%d", int(c[3])).Draw(c[0], c[1]);
         }
       }
 
       glColor3f(1.0, 0.0, 0.0);
-      pangolin::GlFont::I().Text("Tracked %d points", points.size()).Draw(5, 20);
+      FONT.Text("Tracked %d points", points.size()).Draw(5, 20);
     }
   }
 }

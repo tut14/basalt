@@ -188,7 +188,7 @@ class vit_tracker_ui : vis::VIOUIBase {
     calib = cal;
     config = conf;
     string window_name = "Basalt";
-    pangolin::CreateWindowAndBind(window_name, 1800, 1000);
+    pangolin::CreateWindowAndBind(window_name, 1800, 1000, vis::default_win_params);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -387,7 +387,7 @@ class vit_tracker_ui : vis::VIOUIBase {
         if (filter_highlights && !highlighted) continue;
 
         if (show_highlights && highlighted) glColor3ubv(vis::GREEN);
-        pangolin::GlFont::I().Text("%d", id).Draw(pos.x(), pos.y(), pos.z());
+        FONT.Text("%d", id).Draw(pos.x(), pos.y(), pos.z());
         if (show_highlights && highlighted) glColor3ubv(pose_color);
       }
     }

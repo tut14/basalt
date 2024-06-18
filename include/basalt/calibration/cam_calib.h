@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/image/image.h>
 #include <basalt/utils/test_utils.h>
 #include <basalt/utils/sophus_utils.hpp>
+#include <basalt/utils/vis_utils.h>
 
 namespace basalt {
 

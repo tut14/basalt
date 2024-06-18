@@ -26,7 +26,7 @@ if(LSB_RELEASE_PROGRAM)
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   if(${LSB_RELEASE_ID_SHORT} EQUAL "22.04")
-    set(DEBIAN_DEPENDS "libtbb12, liblz4-1, libbz2-1.0, libboost-filesystem1.74.0, libboost-date-time1.74.0, libboost-program-options1.74.0, libboost-regex1.74.0, libopencv-dev, libglew2.2, libjpeg8, libpng16-16, libuvc0, libfmt8")
+    set(DEBIAN_DEPENDS "libtbb12, liblz4-1, libbz2-1.0, libboost-filesystem1.74.0, libboost-date-time1.74.0, libboost-program-options1.74.0, libboost-regex1.74.0, libopencv-dev, libglew2.2, libjpeg8, libpng16-16, libuvc0, libfmt8, libc++-14-dev, libc++1-14, libc++abi1-14, libunwind-14, libunwind-14-dev, libwayland-bin, libepoxy-dev")
   endif()
 
 endif(LSB_RELEASE_PROGRAM)

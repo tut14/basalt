@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/io/dataset_io.h>
 #include <basalt/serialization/headers_serialization.h>
 #include <basalt/utils/filesystem.h>
+#include <basalt/utils/vis_utils.h>
 #include <basalt/calibration/calibration.hpp>
 
 #include <CLI/CLI.hpp>
@@ -345,7 +346,7 @@ int main(int argc, char **argv) {
   if (show_gui) {
     static constexpr int UI_WIDTH = 280;
 
-    pangolin::CreateWindowAndBind("Main", 1280, 800);
+    pangolin::CreateWindowAndBind("Main", 1280, 800, basalt::vis::default_win_params);
 
     pangolin::Plotter *plotter;
 

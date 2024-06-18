@@ -42,8 +42,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <magic_enum.hpp>
 
-#include <fmt/format.h>
-
 #include <sophus/se3.hpp>
 
 #include <tbb/concurrent_unordered_map.h>
@@ -351,7 +349,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
 
   void run_ui() {
     if (show_gui) {
-      pangolin::CreateWindowAndBind("Main", 1800, 1000);
+      pangolin::CreateWindowAndBind("Main", 1800, 1000, vis::default_win_params);
 
       glEnable(GL_DEPTH_TEST);
 
@@ -787,7 +785,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
         if (filter_highlights && !highlighted) continue;
 
         if (show_highlights && highlighted) glColor3ubv(vis::GREEN);
-        pangolin::GlFont::I().Text("%d", id).Draw(pos.x(), pos.y(), pos.z());
+        FONT.Text("%d", id).Draw(pos.x(), pos.y(), pos.z());
         if (show_highlights && highlighted) glColor3ubv(pose_color);
       }
     }
@@ -894,8 +892,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
         for (size_t i = 0; i < gt_t_ns.size(); i++) {
           const Eigen::Vector3d& pos = gt_t_w_i[i];
           os << std::scientific << std::setprecision(18) << gt_t_ns[i] * 1e-9 << " " << pos.x() << " " << pos.y() << " "
-             << pos.z() << " "
-             << "0 0 0 1" << std::endl;
+             << pos.z() << " " << "0 0 0 1" << std::endl;
         }
 
         os.close();

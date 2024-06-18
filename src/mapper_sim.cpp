@@ -166,7 +166,7 @@ int main(int argc, char** argv) {
   std::cout << "rel_pose_factors.size() " << rel_pose_factors.size() << std::endl;
 
   if (show_gui) {
-    pangolin::CreateWindowAndBind("Main", 1800, 1000);
+    pangolin::CreateWindowAndBind("Main", 1800, 1000, basalt::vis::default_win_params);
 
     glEnable(GL_DEPTH_TEST);
 

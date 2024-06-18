@@ -45,6 +45,8 @@ extern "C" const unsigned char AnonymousPro_ttf[];
 namespace basalt::vis {
 
 pangolin::GlFont SMALL_FONT(pangolin::AnonymousPro_ttf, 11);
+pangolin::Params default_win_params({{std::string("default_font_size"), std::string("15")}});
+pangolin::GlFont FONT(pangolin::AnonymousPro_ttf, 14);
 
 bool try_draw_image_text(pangolin::ImageView& view, float x, float y, const pangolin::GlText& text) {
   float xwin = -1;
@@ -116,12 +118,12 @@ void VIOUIBase::do_show_flow(size_t cam_id) {
 
     const Vector2f c = pose.translation();
 
-    if (show_ids) try_draw_image_text(view, c[0] + 5, c[1] + 5, pangolin::GlFont::I().Text("%d", lmid));
+    if (show_ids) try_draw_image_text(view, c[0] + 5, c[1] + 5, FONT.Text("%d", lmid));
     if (show_responses && responses.count(lmid) > 0)
-      try_draw_image_text(view, c[0] + 5, c[1], pangolin::GlFont::I().Text("%.1f", responses.at(lmid)));
+      try_draw_image_text(view, c[0] + 5, c[1], FONT.Text("%.1f", responses.at(lmid)));
   }
 
-  pangolin::GlFont::I().Text("Detected %d keypoints", kp_map.size()).Draw(5, 40);
+  FONT.Text("Detected %d keypoints", kp_map.size()).Draw(5, 40);
 }
 
 void VIOUIBase::do_show_highlights(size_t cam_id) {
@@ -142,7 +144,7 @@ void VIOUIBase::do_show_highlights(size_t cam_id) {
     float u = kpt.translation().x();
     float v = kpt.translation().y();
     pangolin::glDrawCirclePerimeter(u, v, 3);
-    if (show_ids) try_draw_image_text(view, u, v + 5, pangolin::GlFont::I().Text("%lu", kpid));
+    if (show_ids) try_draw_image_text(view, u, v + 5, FONT.Text("%lu", kpid));
   }
 }
 
@@ -228,7 +230,7 @@ void VIOUIBase::do_show_recall_guesses(size_t cam_id) {
 
     auto g = kpt.translation();
     guess_points.emplace_back(g);
-    pangolin::GlFont::I().Text("%zu", kpid).Draw(5 + g.x(), 5 + g.y());
+    FONT.Text("%zu", kpid).Draw(5 + g.x(), 5 + g.y());
 
     if (new_kpts.count(kpid) > 0) {
       auto n = new_kpts.at(kpid).translation();
@@ -574,15 +576,15 @@ void VIOUIBase::do_show_obs(size_t cam_id) {
           pangolin::glDrawCirclePerimeter(u, v, cradius);
         }
 
-        if (show_ids) try_draw_image_text(view, u, v, pangolin::GlFont::I().Text("%d", id));
-        if (show_depth) pangolin::GlFont::I().Text("%.3lf m", depth).Draw(u, v + 5);
+        if (show_ids) try_draw_image_text(view, u, v, FONT.Text("%d", id));
+        if (show_depth) FONT.Text("%.3lf m", depth).Draw(u, v + 5);
       }
     }
 
     if (show_guesses) do_show_guesses(cam_id);
 
     glColor3f(0.0, 1.0, 0.0);
-    pangolin::GlFont::I().Text("Tracked %d points", points.size()).Draw(5, 20);
+    FONT.Text("Tracked %d points", points.size()).Draw(5, 20);
   }
 }
 
@@ -640,7 +642,7 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
                     : marginalized ? curr_vis_data->marginalized_idx[ts]
                                    : curr_vis_data->frame_idx[ts]);
       glColor3ubv(keyframed ? GREEN : marginalized ? RED : BLUE);
-      auto text = pangolin::GlFont::I().Text("%lu", fid);
+      auto text = FONT.Text("%lu", fid);
       try_draw_image_text(blocks_view, xoff + idx, pad / 2, text);
       glColor3ubv(BLUE);
     }
@@ -657,7 +659,7 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
     pangolin::glDrawLine(xoffh - 0.5, yoff + i - 0.5, xoffh + W - 0.5, yoff + i - 0.5);
 
     if (show_ids) {
-      auto text = pangolin::GlFont::I().Text("%lu", b.lmid);
+      auto text = FONT.Text("%lu", b.lmid);
       try_draw_image_text(blocks_view, xoffh + 2, yoff + i + b.storage->rows() / 2.0F, text);
     }
 
@@ -721,7 +723,7 @@ void VIOUIBase::draw_hessian_overlay(pangolin::ImageView& blocks_view, const UIH
                     : marginalized ? curr_vis_data->marginalized_idx[ts]
                                    : curr_vis_data->frame_idx[ts]);
       glColor3ubv(keyframed ? GREEN : marginalized ? RED : BLUE);
-      auto text = pangolin::GlFont::I().Text("%lu", fid);
+      auto text = FONT.Text("%lu", fid);
       try_draw_image_text(blocks_view, xoff + idx, pad / 2, text);
       try_draw_image_text(blocks_view, 0, yoff + idx + pad / 2, text);
       glColor3ubv(BLUE);

@@ -47,6 +47,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/utils/sophus_utils.hpp>
 #include <tuple>
 
+namespace pangolin {
+extern "C" const unsigned char AnonymousPro_ttf[];
+}
+namespace basalt::vis {
+extern pangolin::GlFont FONT;
+}
+using basalt::vis::FONT;
+
 const uint8_t cam_color[3]{250, 0, 125};
 const uint8_t state_color[3]{250, 0, 26};
 const uint8_t pose_color[3]{0, 50, 255};
@@ -90,7 +98,7 @@ inline void render_camera(const Eigen::Matrix4d& T_w_c, float lineWidth, const u
   pangolin::glDrawLines(lines);
   if (show_ids) {
     glColor3ubv(idx_color);
-    pangolin::GlFont::I().Text("%d", frame_idx).Draw(0, 0, -0.01F);
+    FONT.Text("%d", frame_idx).Draw(0, 0, -0.01F);
   }
   glPopMatrix();
 }
@@ -166,6 +174,7 @@ using std::vector;
 using Button = Var<std::function<void(void)>>;
 
 extern pangolin::GlFont SMALL_FONT;
+extern pangolin::Params default_win_params;
 
 const uint8_t BLUE[4]{0x21, 0x96, 0xF3, 0xFF};
 const uint8_t GREEN[4]{0x4C, 0xAF, 0x50, 0xFF};

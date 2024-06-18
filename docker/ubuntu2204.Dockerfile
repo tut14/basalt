@@ -25,5 +25,6 @@ RUN apt-get install -y libgtest-dev
 RUN apt-get install -y libopencv-dev
 RUN apt-get install -y libfmt-dev
 RUN apt-get install -y ninja-build
+RUN apt-get install -y libepoxy-dev
 RUN apt-get install -y curl # Only necessary to produce releases in gitlab with release-cli
 RUN apt-get clean

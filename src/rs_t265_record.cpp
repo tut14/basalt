@@ -57,6 +57,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/device/rs_t265.h>
 #include <basalt/serialization/headers_serialization.h>
 #include <basalt/utils/filesystem.h>
+#include <basalt/utils/vis_utils.h>
 #include <CLI/CLI.hpp>
 #include <cereal/archives/json.hpp>
 
@@ -353,7 +354,7 @@ int main(int argc, char *argv[]) {
   imu_log.reset(new pangolin::DataLog);
 
   if (show_gui) {
-    pangolin::CreateWindowAndBind("Record RealSense T265", 1200, 800);
+    pangolin::CreateWindowAndBind("Record RealSense T265", 1200, 800, basalt::vis::default_win_params);
 
     pangolin::Var<std::function<void(void)>> record_btn("ui.record", [&] { return toggleRecording(dataset_path); });
     pangolin::Var<std::function<void(void)>> export_calibration("ui.export_calib",
@@ -386,16 +387,14 @@ int main(int argc, char *argv[]) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         if (t265_device->last_img_data.get())
-          pangolin::GlFont::I()
-              .Text("Exposure: %.3f ms.", t265_device->last_img_data->img_data[idx].exposure * 1000.0)
-              .Draw(30, 30);
+          FONT.Text("Exposure: %.3f ms.", t265_device->last_img_data->img_data[idx].exposure * 1000.0).Draw(30, 30);
 
         if (idx == 0) {
-          pangolin::GlFont::I().Text("Queue: %d.", image_data_queue2.size()).Draw(30, 60);
+          FONT.Text("Queue: %d.", image_data_queue2.size()).Draw(30, 60);
         }
 
         if (idx == 0 && recording) {
-          pangolin::GlFont::I().Text("Recording").Draw(30, 90);
+          FONT.Text("Recording").Draw(30, 90);
         }
       };
 

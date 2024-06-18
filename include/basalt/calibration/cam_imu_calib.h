@@ -50,6 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/calibration/aprilgrid.h>
 #include <basalt/calibration/calibration_helper.h>
 #include <basalt/utils/test_utils.h>
+#include <basalt/utils/vis_utils.h>
 #include <basalt/utils/sophus_utils.hpp>
 
 namespace basalt {

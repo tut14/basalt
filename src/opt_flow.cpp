@@ -53,6 +53,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <basalt/io/dataset_io.h>
 #include <basalt/spline/se3_spline.h>
+#include <basalt/utils/vis_utils.h>
 
 #include <basalt/calibration/calibration.hpp>
 
@@ -197,7 +198,7 @@ int main(int argc, char** argv) {
   if (show_gui) {
     std::thread t2(&read_result);
 
-    pangolin::CreateWindowAndBind("Main", 1800, 1000);
+    pangolin::CreateWindowAndBind("Main", 1800, 1000, basalt::vis::default_win_params);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -292,10 +293,10 @@ void draw_image_overlay(pangolin::View& v, size_t cam_id) {
 
         const Eigen::Vector2f c = kv.second.translation();
 
-        if (show_ids) pangolin::GlFont::I().Text("%d", kv.first).Draw(5 + c[0], 5 + c[1]);
+        if (show_ids) FONT.Text("%d", kv.first).Draw(5 + c[0], 5 + c[1]);
       }
 
-      pangolin::GlFont::I().Text("Tracked %d keypoints", kp_map.size()).Draw(5, 20);
+      FONT.Text("Tracked %d keypoints", kp_map.size()).Draw(5, 20);
     }
   }
 }

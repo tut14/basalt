@@ -200,7 +200,7 @@ int main(int argc, char** argv) {
   }
 
   if (show_gui) {
-    pangolin::CreateWindowAndBind("Main", 1800, 1000);
+    pangolin::CreateWindowAndBind("Main", 1800, 1000, basalt::vis::default_win_params);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -378,12 +378,12 @@ void draw_image_overlay(pangolin::View& v, size_t view_id) {
         pangolin::glDrawLine(c, c + r);
       }
 
-      pangolin::GlFont::I().Text("Detected %d corners", cr.corners.size()).Draw(5, 20);
+      FONT.Text("Detected %d corners", cr.corners.size()).Draw(5, 20);
 
     } else {
       glLineWidth(1.0);
 
-      pangolin::GlFont::I().Text("Corners not processed").Draw(5, text_row);
+      FONT.Text("Corners not processed").Draw(5, text_row);
     }
     text_row += 20;
   }
@@ -430,11 +430,11 @@ void draw_image_overlay(pangolin::View& v, size_t view_id) {
           pangolin::glDrawLine(c, c + r);
 
           if (show_ids) {
-            pangolin::GlFont::I().Text("%d", i).Draw(c[0], c[1]);
+            FONT.Text("%d", i).Draw(c[0], c[1]);
           }
         }
 
-        pangolin::GlFont::I().Text("Detected %d matches", it->second.matches.size()).Draw(5, text_row);
+        FONT.Text("Detected %d matches", it->second.matches.size()).Draw(5, text_row);
         text_row += 20;
       }
     }
@@ -459,11 +459,11 @@ void draw_image_overlay(pangolin::View& v, size_t view_id) {
           pangolin::glDrawLine(c, c + r);
 
           if (show_ids) {
-            pangolin::GlFont::I().Text("%d", i).Draw(c[0], c[1]);
+            FONT.Text("%d", i).Draw(c[0], c[1]);
           }
         }
 
-        pangolin::GlFont::I().Text("Detected %d inliers", it->second.inliers.size()).Draw(5, text_row);
+        FONT.Text("Detected %d inliers", it->second.inliers.size()).Draw(5, text_row);
         text_row += 20;
       }
     }
