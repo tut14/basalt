@@ -42,8 +42,7 @@ set_target_properties(opengv PROPERTIES CXX_STANDARD 17 DEBUG_POSTFIX "")
 # fix opengv: compile options (CMAKE_CXX_FLAGS is overwritten by Opengv)
 target_compile_options(opengv PRIVATE -Wno-unused-private-field ${BASALT_MARCH_FLAGS}
   "SHELL:${BASALT_PASSED_CXX_FLAGS}" "-Wno-stringop-overflow" "-w")
-get_target_property(_opengv_includes opengv INTERFACE_INCLUDE_DIRECTORIES)
-target_include_directories(opengv SYSTEM INTERFACE ${_opengv_includes})
+ignore_external_warnings(opengv)
 
 # Hack to disable CPack in Pangolin.
 macro(include)
@@ -58,11 +57,7 @@ add_subdirectory(Pangolin EXCLUDE_FROM_ALL)
 
 get_property(pangolin_targets DIRECTORY Pangolin PROPERTY BUILDSYSTEM_TARGETS)
 foreach(_target ${pangolin_targets})
-  target_compile_options(${_target} PRIVATE "-w") # Silence compile warnings
-  get_target_property(_includes ${_target} INTERFACE_INCLUDE_DIRECTORIES)
-  if(_includes)
-    target_include_directories(${_target} SYSTEM INTERFACE ${_includes}) # Silence include warnings
-  endif()
+  ignore_external_warnings(${_target})
 endforeach()
 
 add_library(pangolin INTERFACE)
