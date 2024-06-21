@@ -305,7 +305,7 @@ message(STATUS "Found {fmt} ${fmt_VERSION} in: ${fmt_DIR}")
 
 add_subdirectory(thirdparty)
 
-# custom scoped vit target from monado
+# custom scoped vit target: https://gitlab.freedesktop.org/monado/utilities/vit/
 add_library(basalt::vit INTERFACE IMPORTED)
 set_property(TARGET basalt::vit PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/vit)
 target_sources(basalt::vit INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/vit/vit_implementation_helper.cpp)
@@ -515,8 +515,8 @@ if(BASALT_BUILD_SHARED_LIBRARY_ONLY)
     RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
     LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
     ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-  set(CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/msdmi_config.json" "${CMAKE_CURRENT_SOURCE_DIR}/data/msdmi_calib.json")
-  set(UNIFIED_CONFIG_FILES msdmi.toml)
+  set(CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/msd/msdmo_config.json" "${CMAKE_CURRENT_SOURCE_DIR}/data/msd/msdmo_calib.json")
+  set(UNIFIED_CONFIG_FILES msdmo.toml)
 
 else()
 
@@ -542,8 +542,8 @@ endif()
 file(GLOB SCRIPTS_TO_INSTALL "${CMAKE_CURRENT_SOURCE_DIR}/scripts/basalt_*.py")
 install(PROGRAMS ${SCRIPTS_TO_INSTALL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
-file(GLOB CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/*.json")
-file(GLOB ABSOLUTE_UNIFIED_CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/monado/*.toml.in")
+file(GLOB_RECURSE CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/*.json")
+file(GLOB ABSOLUTE_UNIFIED_CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/vit/*.toml.in")
 foreach(full_path IN LISTS ABSOLUTE_UNIFIED_CONFIG_FILES)
   get_filename_component(file_name "${full_path}" NAME_WE)
   list(APPEND UNIFIED_CONFIG_FILES ${file_name}.toml)
@@ -555,11 +555,11 @@ endif(BASALT_BUILD_SHARED_LIBRARY_ONLY)
 set(CONFIG_FILE_INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX}/share/basalt) # Used for unified_config.in
 foreach(unified_config IN LISTS UNIFIED_CONFIG_FILES)
   configure_file(
-    ${CMAKE_CURRENT_LIST_DIR}/data/monado/${unified_config}.in
-    ${CMAKE_CURRENT_BINARY_DIR}/data/monado/${unified_config}
+    ${CMAKE_CURRENT_LIST_DIR}/data/vit/${unified_config}.in
+    ${CMAKE_CURRENT_BINARY_DIR}/data/vit/${unified_config}
     @ONLY
     )
-  list(APPEND CONFIG_FILES ${CMAKE_CURRENT_BINARY_DIR}/data/monado/${unified_config})
+  list(APPEND CONFIG_FILES ${CMAKE_CURRENT_BINARY_DIR}/data/vit/${unified_config})
 endforeach()
 
 install(FILES ${CONFIG_FILES} DESTINATION ${CONFIG_FILE_INSTALL_DESTINATION})

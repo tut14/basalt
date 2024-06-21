@@ -59,6 +59,7 @@ class SqrtKeypointVoEstimator : public VioEstimatorBase, public SqrtBundleAdjust
   using MatN3 = Eigen::Matrix<Scalar, N, 3>;
   using MatX = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
   using SE3 = Sophus::SE3<Scalar>;
+  using UIMAT = vis::UIMAT;
 
   using typename SqrtBundleAdjustmentBase<Scalar>::RelLinData;
   using typename SqrtBundleAdjustmentBase<Scalar>::AbsLinData;
@@ -90,6 +91,8 @@ class SqrtKeypointVoEstimator : public VioEstimatorBase, public SqrtBundleAdjust
   void initialize(int64_t t_ns, const Sophus::SE3d& T_w_i, const Eigen::Vector3d& vel_w_i, const Eigen::Vector3d& bg,
                   const Eigen::Vector3d& ba) override;
 
+  void scheduleResetState() override;
+  bool resetState(bool& add_pose, OpticalFlowResult::Ptr& curr_frame, OpticalFlowResult::Ptr& prev_frame);
   void initialize(const Eigen::Vector3d& bg, const Eigen::Vector3d& ba) override;
 
   virtual ~SqrtKeypointVoEstimator() { maybe_join(); }
@@ -103,18 +106,21 @@ class SqrtKeypointVoEstimator : public VioEstimatorBase, public SqrtBundleAdjust
 
   void addIMUToQueue(const ImuData<double>::Ptr& data) override;
   void addVisionToQueue(const OpticalFlowResult::Ptr& data) override;
+  void takeLongTermKeyframe() override;
 
   bool measure(const OpticalFlowResult::Ptr& opt_flow_meas, bool add_frame);
 
   // int64_t propagate();
   // void addNewState(int64_t data_t_ns);
 
-  void optimize_and_marg(const OpticalFlowInput::Ptr& input_images, const std::map<int64_t, int>& num_points_connected,
+  bool optimize_and_marg(const OpticalFlowInput::Ptr& input_images, const std::map<int64_t, int>& num_points_connected,
                          const std::unordered_set<KeypointId>& lost_landmaks);
 
-  void marginalize(const std::map<int64_t, int>& num_points_connected,
+  bool marginalize(const std::map<int64_t, int>& num_points_connected,
                    const std::unordered_set<KeypointId>& lost_landmaks);
-  void optimize();
+  bool optimize();
+
+  bool show_uimat(UIMAT m) const;
 
   void logMargNullspace();
   Eigen::VectorXd checkMargNullspace() const;
@@ -194,9 +200,13 @@ class SqrtKeypointVoEstimator : public VioEstimatorBase, public SqrtBundleAdjust
   using BundleAdjustmentBase<Scalar>::calib;
 
  private:
-  bool take_kf;              // true if next frame should become kf
-  int frames_after_kf;       // number of frames since last kf
+  bool take_kf;         // true if next frame should become kf
+  int frames_after_kf;  // number of frames since last kf
+  size_t frame_count = 0;
   std::set<int64_t> kf_ids;  // sliding window frame ids
+  std::set<int64_t> ltkfs;   // Long term keyframes
+  bool take_ltkf;            // Whether the next keyframe should be made into ltkfs
+  Eigen::aligned_map<int64_t, size_t> frame_idx;
 
   // timestamp of latest state in the sliding window
   // TODO: check and document when this is equal to kf_ids.rbegin() and when
@@ -221,6 +231,7 @@ class SqrtKeypointVoEstimator : public VioEstimatorBase, public SqrtBundleAdjust
   SE3 T_w_i_init;
 
   bool initialized;
+  bool schedule_reset;
 
   VioConfig config;
 

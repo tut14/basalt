@@ -58,6 +58,24 @@ bool try_draw_image_text(pangolin::ImageView& view, float x, float y, const pang
   return in_bounds;
 }
 
+static std::pair<size_t, const uint8_t*> get_frame_id_and_color(const VioVisualizationData::Ptr& curr_vis_data,
+                                                                int64_t ts) {
+  if (curr_vis_data->keyframed_idx.count(ts) > 0) {  // keyframed
+    return {curr_vis_data->keyframed_idx.at(ts), GREEN};
+  } else if (curr_vis_data->marginalized_idx.count(ts) > 0) {  // marginalized
+    return {curr_vis_data->marginalized_idx.at(ts), RED};
+  } else if (curr_vis_data->frame_idx.count(ts) > 0) {  // regular
+    return {curr_vis_data->frame_idx.at(ts), BLUE};
+  } else {  // invalid
+    static bool shown = false;
+    if (!shown) {
+      std::cout << "WARNING: Unexpected state for frame id " << ts << "\n";
+      shown = true;
+    }
+    return {-1, YELLOW};
+  }
+}
+
 bool VIOUIBase::highligh_frame() {
   VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return false;
@@ -84,6 +102,11 @@ bool VIOUIBase::toggle_blocks() {
 
 bool VIOUIBase::take_ltkf() {
   vio->takeLongTermKeyframe();
+  return true;
+}
+
+bool VIOUIBase::reset_state() {
+  vio->scheduleResetState();
   return true;
 }
 
@@ -633,15 +656,8 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
     const auto [idx, size] = idx_size;
     pangolin::glDrawLine(xoff + idx + size - 0.5, -0.5, xoff + idx + size - 0.5, H - 0.5);
     if (show_ids) {
-      bool keyframed = curr_vis_data->keyframed_idx.count(ts) > 0;
-      bool marginalized = curr_vis_data->marginalized_idx.count(ts) > 0;
-      bool present = curr_vis_data->frame_idx.count(ts) > 0;
-      if (!keyframed && !marginalized && !present) BASALT_ASSERT(false);
-
-      size_t fid = (keyframed      ? curr_vis_data->keyframed_idx[ts]
-                    : marginalized ? curr_vis_data->marginalized_idx[ts]
-                                   : curr_vis_data->frame_idx[ts]);
-      glColor3ubv(keyframed ? GREEN : marginalized ? RED : BLUE);
+      auto [fid, fid_color] = get_frame_id_and_color(curr_vis_data, ts);
+      glColor3ubv(fid_color);
       auto text = FONT.Text("%lu", fid);
       try_draw_image_text(blocks_view, xoff + idx, pad / 2, text);
       glColor3ubv(BLUE);
@@ -714,15 +730,8 @@ void VIOUIBase::draw_hessian_overlay(pangolin::ImageView& blocks_view, const UIH
     pangolin::glDrawLine(xoffh - 0.5, p, xoff + w - 0.5, p);  // Row
 
     if (show_ids) {
-      bool keyframed = curr_vis_data->keyframed_idx.count(ts) > 0;
-      bool marginalized = curr_vis_data->marginalized_idx.count(ts) > 0;
-      bool present = curr_vis_data->frame_idx.count(ts) > 0;
-      if (!keyframed && !marginalized && !present) BASALT_ASSERT(false);
-
-      size_t fid = (keyframed      ? curr_vis_data->keyframed_idx[ts]
-                    : marginalized ? curr_vis_data->marginalized_idx[ts]
-                                   : curr_vis_data->frame_idx[ts]);
-      glColor3ubv(keyframed ? GREEN : marginalized ? RED : BLUE);
+      auto [fid, fid_color] = get_frame_id_and_color(curr_vis_data, ts);
+      glColor3ubv(fid_color);
       auto text = FONT.Text("%lu", fid);
       try_draw_image_text(blocks_view, xoff + idx, pad / 2, text);
       try_draw_image_text(blocks_view, 0, yoff + idx + pad / 2, text);
@@ -1009,16 +1018,7 @@ bool VIOUIBase::do_follow_highlight(bool smooth_zoom) {
 void VIOUIBase::do_render_camera(const Sophus::SE3d& T_w_c, size_t i, size_t ts, const uint8_t* color) {
   VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
-
-  bool keyframed = curr_vis_data->keyframed_idx.count(ts) > 0;
-  bool marginalized = curr_vis_data->marginalized_idx.count(ts) > 0;
-  bool present = curr_vis_data->frame_idx.count(ts) > 0;
-  if (!keyframed && !marginalized && !present) BASALT_ASSERT(false);
-
-  size_t fid = (keyframed      ? curr_vis_data->keyframed_idx[ts]
-                : marginalized ? curr_vis_data->marginalized_idx[ts]
-                               : curr_vis_data->frame_idx[ts]);
-  const uint8_t* fid_color = keyframed ? GREEN : marginalized ? RED : BLUE;
+  auto [fid, fid_color] = get_frame_id_and_color(curr_vis_data, ts);
   render_camera(T_w_c.matrix(), 2.0F, color, 0.1F, show_ids && i == 0, fid, fid_color);
 }
 

@@ -179,6 +179,7 @@ extern pangolin::Params default_win_params;
 const uint8_t BLUE[4]{0x21, 0x96, 0xF3, 0xFF};
 const uint8_t GREEN[4]{0x4C, 0xAF, 0x50, 0xFF};
 const uint8_t RED[4]{0xF4, 0x43, 0x36, 0xFF};
+const uint8_t YELLOW[4]{0xFF, 0xFF, 0x00, 0xFF};
 
 struct SelectionNode {
   bool is_range;
@@ -233,6 +234,7 @@ struct VIOUIBase {
   Var<bool> show_block_vals{"ui.show_block_vals", false, true};
 
   Button take_ltkf_btn{"ui.Take Keyframe", [this]() { take_ltkf(); }};
+  Button reset_state_btn{"ui.Reset State", [this]() { reset_state(); }};
 
   Var<bool> show_grid{"ui.show_grid", false, true};
   Var<bool> show_safe_radius{"ui.show_safe_radius", false, true};
@@ -261,6 +263,7 @@ struct VIOUIBase {
   bool highligh_frame();
   bool toggle_blocks();
   bool take_ltkf();
+  bool reset_state();
   void do_show_flow(size_t cam_id);
   void do_show_highlights(size_t cam_id);
   void do_show_tracking_guess(size_t cam_id, size_t frame_id, const VioVisualizationData::Ptr& prev_vis_data);

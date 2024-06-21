@@ -71,20 +71,20 @@ def main(calib_path_1, calib_path_2):
 
     print_abs_rel(
         '\nAccel Noise Std Difference',
-        calib0['value0']['accel_noise_std'],
-        calib1['value0']['accel_noise_std'])
+        np.array(calib0['value0']['accel_noise_std']),
+        np.array(calib1['value0']['accel_noise_std']))
     print_abs_rel(
         'Gyro Noise Std Difference',
-        calib0['value0']['gyro_noise_std'],
-        calib1['value0']['gyro_noise_std'])
+        np.array(calib0['value0']['gyro_noise_std']),
+        np.array(calib1['value0']['gyro_noise_std']))
     print_abs_rel(
         'Accel Bias Std Difference',
-        calib0['value0']['accel_bias_std'],
-        calib1['value0']['accel_bias_std'])
+        np.array(calib0['value0']['accel_bias_std']),
+        np.array(calib1['value0']['accel_bias_std']))
     print_abs_rel(
         'Gyro Bias Std Difference',
-        calib0['value0']['gyro_bias_std'],
-        calib1['value0']['gyro_bias_std'])
+        np.array(calib0['value0']['gyro_bias_std']),
+        np.array(calib1['value0']['gyro_bias_std']))
 
     print_abs_rel(
         '\nCam Time Offset Difference',

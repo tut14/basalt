@@ -467,7 +467,7 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
    * @param[out] landmarks: A reference where landmarks will be returned.
    * @param[out] projections: A reference where the landmark's projections will be returned.
    */
-  Eigen::aligned_unordered_map<LandmarkId, Vector2> getProjectedLandmarks(size_t cam_id) const {
+  Eigen::aligned_map<LandmarkId, Vector2> getProjectedLandmarks(size_t cam_id) const {
     using Eigen::Matrix4Xf, Eigen::Map, Eigen::aligned_vector, Eigen::Vector4f, Eigen::Aligned;
 
     SE3 T_i1 = predicted_state->T_w_i.template cast<Scalar>();
@@ -509,7 +509,7 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
     for (size_t i = 0; i < lms.size(); i++)
       valid_uvs[i] = valid_uvs[i] && cj_uvs[i].x() >= 0 && cj_uvs[i].x() < w && cj_uvs[i].y() >= 0 && cj_uvs[i].y() < h;
 
-    Eigen::aligned_unordered_map<LandmarkId, Vector2> projections;
+    Eigen::aligned_map<LandmarkId, Vector2> projections;
     for (size_t i = 0; i < lms.size(); i++)
       if (valid_uvs[i]) projections[lmids[i]] = cj_uvs[i];
 
@@ -524,7 +524,7 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
     recalls[cam_id].clear();
 
     // Project the landmarks from the map into the new frame to obtain their projections.
-    Eigen::aligned_unordered_map<LandmarkId, Vector2> projections = getProjectedLandmarks(cam_id);
+    Eigen::aligned_map<LandmarkId, Vector2> projections = getProjectedLandmarks(cam_id);
 
     for (const auto& [lm_id, proj_pos] : projections) {
       Eigen::AffineCompact2f proj_pose = Eigen::AffineCompact2f::Identity();

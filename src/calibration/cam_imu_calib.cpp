@@ -78,7 +78,19 @@ CamImuCalib::CamImuCalib(const std::string &dataset_path, const std::string &dat
       opt_mocap("ui.opt_mocap", false, false, true),
       huber_thresh("ui.huber_thresh", 4.0, 0.1, 10.0),
       opt_until_convg("ui.opt_until_converge", false, false, true),
-      stop_thresh("ui.stop_thresh", 1e-8, 1e-10, 0.01, true) {
+      stop_thresh("ui.stop_thresh", 1e-8, 1e-10, 0.01, true),
+      show_tweak_menu("ui.show_tweak_menu", false, false, true),
+      tweak_title("tweak.MENU", "Tweak Menu", pangolin::META_FLAG_READONLY),
+      cam_index("tweak.cam_index"),
+      px("tweak.px", -1, -1, 1),
+      py("tweak.py", -1, -1, 1),
+      pz("tweak.pz", -1, -1, 1),
+      qx("tweak.qx", -1, -1, 1),
+      qy("tweak.qy", -1, -1, 1),
+      qz("tweak.qz", -1, -1, 1),
+      qw("tweak.qw", -1, -1, 1),
+      load_T_i_c("tweak.load_T_i_c", [this]() { loadCamImuTransform(); }),
+      save_T_i_c("tweak.save_T_i_c", [this]() { saveCamImuTransform(); }) {
   if (show_gui) initGui();
 }
 
@@ -98,6 +110,9 @@ void CamImuCalib::initGui() {
   pangolin::View &plot_display = pangolin::CreateDisplay().SetBounds(0.0, 0.5, pangolin::Attach::Pix(UI_WIDTH), 1.0);
 
   pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
+  pangolin::CreatePanel("tweak")
+      .SetBounds(0.0, 0.4, pangolin::Attach::Pix(UI_WIDTH), pangolin::Attach::Pix(2 * UI_WIDTH))
+      .Show(show_tweak_menu);
 
   plotter = new pangolin::Plotter(&imu_data_log, 0.0, 100.0, -10.0, 10.0, 0.01f, 0.01f);
   plot_display.AddDisplay(*plotter);
@@ -127,7 +142,30 @@ void CamImuCalib::initGui() {
   setNumCameras(1);
 }
 
+void CamImuCalib::loadCamImuTransform() {
+  px = calib_opt->calib->T_i_c.at(cam_index).translation().x();
+  py = calib_opt->calib->T_i_c.at(cam_index).translation().y();
+  pz = calib_opt->calib->T_i_c.at(cam_index).translation().z();
+  qx = calib_opt->calib->T_i_c.at(cam_index).unit_quaternion().x();
+  qy = calib_opt->calib->T_i_c.at(cam_index).unit_quaternion().y();
+  qz = calib_opt->calib->T_i_c.at(cam_index).unit_quaternion().z();
+  qw = calib_opt->calib->T_i_c.at(cam_index).unit_quaternion().w();
+}
+void CamImuCalib::saveCamImuTransform() {
+  calib_opt->calib->T_i_c.at(cam_index).translation().x() = px;
+  calib_opt->calib->T_i_c.at(cam_index).translation().y() = py;
+  calib_opt->calib->T_i_c.at(cam_index).translation().z() = pz;
+  Eigen::Quaternion<double> quat{qw, qx, qy, qz};
+  quat.normalize();
+  calib_opt->calib->T_i_c.at(cam_index).setQuaternion(quat);
+  loadCamImuTransform();
+  computeProjections();
+  recomputeDataLog();
+  drawPlots();
+}
+
 void CamImuCalib::setNumCameras(size_t n) {
+  cam_index.Meta().range[1] = n - 1;
   while (img_view.size() < n && show_gui) {
     std::shared_ptr<pangolin::ImageView> iv(new pangolin::ImageView);
 
@@ -169,6 +207,19 @@ void CamImuCalib::renderingLoop() {
           show_pos.GuiChanged() || show_rot_error.GuiChanged() || show_mocap.GuiChanged() ||
           show_mocap_rot_error.GuiChanged() || show_mocap_rot_vel.GuiChanged()) {
         drawPlots();
+      }
+
+      if (show_tweak_menu.GuiChanged()) {
+        pangolin::Display("tweak").Show(show_tweak_menu);
+      }
+
+      if (px.GuiChanged() || py.GuiChanged() || pz.GuiChanged() || qx.GuiChanged() || qy.GuiChanged() ||
+          qz.GuiChanged() || qw.GuiChanged()) {
+        saveCamImuTransform();
+      }
+
+      if (show_tweak_menu.GuiChanged() || cam_index.GuiChanged()) {
+        loadCamImuTransform();
       }
     }
 
@@ -706,6 +757,7 @@ bool CamImuCalib::optimizeWithParam(bool print_info, std::map<std::string, doubl
     // num_points << std::endl;
 
     if (show_gui) {
+      loadCamImuTransform();
       computeProjections();
       recomputeDataLog();
       drawPlots();

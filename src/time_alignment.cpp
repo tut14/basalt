@@ -366,24 +366,24 @@ int main(int argc, char **argv) {
 
     std::string save_button_name = "ui.save_aligned_dataset";
     // Disable save_aligned_dataset button if GT data already exists
-    if (basalt::fs::exists(basalt::fs::path(dataset_path + "mav0/gt/data.csv"))) {
+    if (basalt::fs::exists(basalt::fs::path(dataset_path + "/mav0/gt/data.csv"))) {
       save_button_name += "(disabled)";
     }
 
     pangolin::Var<std::function<void(void)>> save_aligned_dataset(save_button_name, [&]() {
-      if (basalt::fs::exists(basalt::fs::path(dataset_path + "mav0/gt/data.csv"))) {
+      if (basalt::fs::exists(basalt::fs::path(dataset_path + "/mav0/gt/data.csv"))) {
         std::cout << "Aligned ground-truth data already exists, skipping. "
                      "If you want to run the calibration again delete "
-                  << dataset_path << "mav0/gt/ folder." << std::endl;
+                  << dataset_path << "/mav0/gt/ folder." << std::endl;
         return;
       }
-      std::cout << "Saving aligned dataset in " << dataset_path + "mav0/gt/data.csv" << std::endl;
+
       // output corrected mocap data
       Sophus::SE3d T_mark_i;
       if (use_calib) T_mark_i = mocap_calib.T_i_mark.inverse();
-      basalt::fs::create_directory(dataset_path + "mav0/gt/");
+      basalt::fs::create_directory(dataset_path + "/mav0/gt/");
       std::ofstream gt_out_stream;
-      gt_out_stream.open(dataset_path + "mav0/gt/data.csv");
+      gt_out_stream.open(dataset_path + "/mav0/gt/data.csv");
       gt_out_stream << "#timestamp [ns], p_RS_R_x [m], p_RS_R_y [m], p_RS_R_z [m], "
                        "q_RS_w [], q_RS_x [], q_RS_y [], q_RS_z []\n";
 
@@ -396,6 +396,7 @@ int main(int argc, char **argv) {
                       << pose_corrected.unit_quaternion().z() << std::endl;
       }
       gt_out_stream.close();
+      std::cout << "Saved aligned dataset in " << dataset_path + "/mav0/gt/data.csv" << std::endl;
     });
 
     auto recompute_logs = [&]() {

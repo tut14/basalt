@@ -94,6 +94,10 @@ class CamImuCalib {
 
   void saveMocapCalib();
 
+  void saveCamImuTransform();
+
+  void loadCamImuTransform();
+
   void drawImageOverlay(pangolin::View &v, size_t cam_id);
 
   void recomputeDataLog();
@@ -169,6 +173,19 @@ class CamImuCalib {
 
   pangolin::Var<bool> opt_until_convg;
   pangolin::Var<double> stop_thresh;
+
+  pangolin::Var<bool> show_tweak_menu;
+  pangolin::Var<std::string> tweak_title;
+  pangolin::Var<int> cam_index;
+  pangolin::Var<double> px;
+  pangolin::Var<double> py;
+  pangolin::Var<double> pz;
+  pangolin::Var<double> qx;
+  pangolin::Var<double> qy;
+  pangolin::Var<double> qz;
+  pangolin::Var<double> qw;
+  pangolin::Var<std::function<void(void)>> load_T_i_c;
+  pangolin::Var<std::function<void(void)>> save_T_i_c;
 
   pangolin::Plotter *plotter;
   pangolin::View *img_view_display;

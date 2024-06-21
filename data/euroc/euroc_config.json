@@ -22,10 +22,10 @@
         "config.optical_flow_recall_update_patch_viewpoint": false,
         "config.optical_flow_recall_max_patch_dist": 3,
         "config.optical_flow_recall_max_patch_norms": [
-            1.74,
-            0.96,
-            0.99,
-            0.44
+            0.435,
+            0.24,
+            0.24,
+            0.11
         ],
         "config.vio_linearization_type": "ABS_QR",
         "config.vio_sqrt_marg": true,
@@ -53,7 +53,7 @@
         "config.vio_init_ba_weight": 1e1,
         "config.vio_init_bg_weight": 1e2,
         "config.vio_marg_lost_landmarks": true,
-        "config.vio_fix_long_term_keyframes": true,
+        "config.vio_fix_long_term_keyframes": false,
         "config.vio_kf_marg_feature_ratio": 0.1,
         "config.vio_kf_marg_criteria": "KF_MARG_DEFAULT",
         "config.mapper_obs_std_dev": 0.25,
