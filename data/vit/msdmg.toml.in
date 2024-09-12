@@ -4,10 +4,10 @@
 show-gui=1
 
 # Ground-truth camera calibration used for simulation.
-cam-calib="@CONFIG_FILE_INSTALL_DESTINATION@/msd/msdmg_calib.json"
+cam-calib="@CONFIG_FILE_INSTALL_DESTINATION@/msdmg_calib.json"
 
 # Path to config file.
-config-path="@CONFIG_FILE_INSTALL_DESTINATION@/msd/msdmg_config.json"
+config-path="@CONFIG_FILE_INSTALL_DESTINATION@/msdmg_config.json"
 
 # Path to folder where marginalization data will be stored.
 marg-data=""

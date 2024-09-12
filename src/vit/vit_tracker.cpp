@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <chrono>
 #include <cstdio>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -724,7 +725,8 @@ vit_result_t vit_tracker_create(const vit_config_t *config, vit_tracker_t **out_
   try {
     vit::Tracker *tracker = new basalt::vit_implementation::Tracker(config);
     *out_tracker = tracker;
-  } catch (...) {
+  } catch (const std::exception &exc) {
+    std::cerr << exc.what() << std::endl;
     return VIT_ERROR_ALLOCATION_FAILURE;
   }
 

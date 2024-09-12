@@ -4,10 +4,10 @@
 show-gui=1
 
 # Ground-truth camera calibration used for simulation.
-cam-calib="@CONFIG_FILE_INSTALL_DESTINATION@/euroc/euroc_ds_calib.json"
+cam-calib="@CONFIG_FILE_INSTALL_DESTINATION@/euroc_ds_calib.json"
 
 # Path to config file.
-config-path="@CONFIG_FILE_INSTALL_DESTINATION@/euroc/euroc_config.json"
+config-path="@CONFIG_FILE_INSTALL_DESTINATION@/euroc_config.json"
 
 # Path to folder where marginalization data will be stored.
 marg-data=""
