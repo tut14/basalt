@@ -199,7 +199,7 @@ void BundleAdjustmentBase<Scalar_>::computeError(Scalar& error,
   tbb::blocked_range<size_t> range(0, host_frames.size());
   Scalar init = 0;
   auto join = std::plus<Scalar>();
-  error = tbb::parallel_reduce(range, init, body, join);
+  error = tbb::parallel_deterministic_reduce(range, init, body, join);
 
   if (outliers) {
     outliers->clear();

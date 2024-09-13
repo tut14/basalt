@@ -125,6 +125,7 @@ struct Tracker::Implementation {
   string marg_data_path;
   bool print_queue = false;
   bool use_double = false;
+  bool deterministic = false;
 
   // VIO members
   struct {
@@ -224,6 +225,7 @@ struct Tracker::Implementation {
     app.add_option("--marg-data", marg_data_path, "Path to folder where marginalization data will be stored.");
     app.add_option("--print-queue", print_queue, "Poll and print for queue sizes.");
     app.add_option("--use-double", use_double, "Whether to use a double or single precision pipeline.");
+    app.add_option("--deterministic", deterministic, "Make the pipeline output reproducible (some performance impact)");
 
     try {
       // While --config-path sets the VIO configuration, --config sets the
@@ -415,7 +417,7 @@ struct Tracker::Implementation {
     vio->initialize(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
 
     if (show_gui) ui.start(vio->getT_w_i_init(), calib, vio_config, opt_flow_ptr, vio);
-    state_consumer_thread = thread(&Tracker::Implementation::state_consumer, this);
+    if (!deterministic) state_consumer_thread = thread(&Tracker::Implementation::state_consumer, this);
     if (print_queue) queues_printer_thread = thread(&Tracker::Implementation::queues_printer, this);
   }
 
@@ -426,7 +428,7 @@ struct Tracker::Implementation {
     opt_flow_ptr->input_imu_queue.push(nullptr);
 
     if (print_queue) queues_printer_thread.join();
-    state_consumer_thread.join();
+    if (!deterministic) state_consumer_thread.join();
     if (show_gui) ui.stop();
 
     // TODO: There is a segfault when closing monado without starting the stream
@@ -504,6 +506,7 @@ struct Tracker::Implementation {
       partial_frame->addTime("tracker_pushed");
       image_data_queue->push(partial_frame);
       if (show_gui) ui.update_last_image(partial_frame);
+      if (deterministic) pop_state();
     }
   }
 
@@ -545,26 +548,25 @@ struct Tracker::Implementation {
   }
 
  private:
-  void state_consumer() {
+  bool pop_state() {
     PoseVelBiasState<double>::Ptr data;
     PoseVelBiasState<double>::Ptr _;
-
-    while (true) {
-      out_state_queue.pop(data);
-      if (data.get() == nullptr) {
-        while (!monado_out_state_queue.try_push(nullptr)) monado_out_state_queue.pop(_);
-        break;
-      }
-      data->input_images->addTime("tracker_consumer_received");
-
-      if (show_gui) ui.log_vio_data(data);
-
-      data->input_images->addTime("tracker_consumer_pushed");
-      while (!monado_out_state_queue.try_push(data)) monado_out_state_queue.pop(_);
+    out_state_queue.pop(data);
+    if (data.get() == nullptr) {
+      while (!monado_out_state_queue.try_push(nullptr)) monado_out_state_queue.pop(_);
+      return false;
     }
+    data->input_images->addTime("tracker_consumer_received");
 
-    cout << "Finished state_consumer\n";
+    if (show_gui) ui.log_vio_data(data);
+
+    data->input_images->addTime("tracker_consumer_pushed");
+    while (!monado_out_state_queue.try_push(data)) monado_out_state_queue.pop(_);
+
+    return true;
   }
+
+  void state_consumer() { while (pop_state()); }
 
   void queues_printer() {
     while (running) {

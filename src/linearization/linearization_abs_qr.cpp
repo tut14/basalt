@@ -124,7 +124,7 @@ LinearizationAbsQR<Scalar, POSE_SIZE>::LinearizationAbsQR(
       landmark_ids.emplace_back(k);
     }
   }
-  std::sort(landmark_ids.begin(), landmark_ids.end()); // This is only done for better visualizations
+  std::sort(landmark_ids.begin(), landmark_ids.end());  // For better visualization
   size_t num_landmakrs = landmark_ids.size();
 
   // std::cout << "num_landmakrs " << num_landmakrs << std::endl;
@@ -259,7 +259,7 @@ Scalar LinearizationAbsQR<Scalar, POSE_SIZE>::linearizeProblem(bool* numerically
   };
 
   tbb::blocked_range<size_t> range(0, num_landmarks);
-  auto reduction_res = tbb::parallel_reduce(range, initial_value, body, join);
+  auto reduction_res = tbb::parallel_deterministic_reduce(range, initial_value, body, join);
 
   if (numerically_valid) *numerically_valid = reduction_res.second;
 
@@ -310,7 +310,7 @@ Scalar LinearizationAbsQR<Scalar, POSE_SIZE>::backSubstitute(const VecX& pose_in
   };
 
   tbb::blocked_range<size_t> range(0, landmark_block_idx.size());
-  Scalar l_diff = tbb::parallel_reduce(range, Scalar(0), body, std::plus<Scalar>());
+  Scalar l_diff = tbb::parallel_deterministic_reduce(range, Scalar(0), body, std::plus<Scalar>());
 
   if (imu_lin_data) {
     for (auto& imu_block : imu_blocks) {
@@ -359,8 +359,7 @@ typename LinearizationAbsQR<Scalar, POSE_SIZE>::VecX LinearizationAbsQR<Scalar, 
   Reductor r(aom.total_size, landmark_blocks);
 
   tbb::blocked_range<size_t> range(0, landmark_block_idx.size());
-  tbb::parallel_reduce(range, r);
-  // r(range);
+  tbb::parallel_deterministic_reduce(range, r);
 
   if (imu_lin_data) {
     for (auto& imu_block : imu_blocks) {
@@ -570,7 +569,7 @@ void LinearizationAbsQR<Scalar, POSE_SIZE>::get_dense_H_b(MatX& H, VecX& b) cons
 
   // go over all host frames
   tbb::blocked_range<size_t> range(0, landmark_block_idx.size());
-  tbb::parallel_reduce(range, r);
+  tbb::parallel_deterministic_reduce(range, r);
 
   // Add imu
   add_dense_H_b_imu(r.H_, r.b_);

@@ -92,6 +92,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
   unordered_map<int64_t, VioVisualizationData::Ptr> vis_map;
 
   VioDatasetPtr vio_dataset;
+  int64_t start_t_ns = -1;
 
   DataLog imu_data_log, vio_data_log, error_data_log;
   shared_ptr<Plotter> plotter;
@@ -116,6 +117,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
   std::mutex m;
   std::condition_variable cvar;
   bool step_by_step = false;
+  bool deterministic = false;
   size_t max_frames = 0;
 
   std::atomic<bool> terminate = false;
@@ -164,22 +166,19 @@ struct basalt_vio_ui : vis::VIOUIBase {
 
     app.add_option("--show-gui", show_gui, "Show GUI");
     app.add_option("--cam-calib", cam_calib_path, "Ground-truth camera calibration used for simulation.")->required();
-
     app.add_option("--dataset-path", dataset_path, "Path to dataset.")->required();
-
     app.add_option("--dataset-type", dataset_type, "Dataset type <euroc, bag>.")->required();
-
     app.add_option("--marg-data", marg_data_path, "Path to folder where marginalization data will be stored.");
-
     app.add_option("--print-queue", print_queue, "Print queue.");
     app.add_option("--config-path", config_path, "Path to config file.");
     app.add_option("--result-path", result_path, "Path to result file where the system will write RMSE ATE.");
     app.add_option("--num-threads", num_threads, "Number of threads.");
-    app.add_option("--step-by-step", step_by_step, "Path to config file.");
+    app.add_option("--step-by-step", step_by_step, "Whether to wait for manual input before running the dataset");
     app.add_option("--save-trajectory", trajectory_fmt, "Save trajectory. Supported formats <tum, euroc, kitti>");
     app.add_option("--save-groundtruth", trajectory_groundtruth, "In addition to trajectory, save also ground turth");
-    app.add_option("--use-imu", use_imu, "Use IM");
+    app.add_option("--use-imu", use_imu, "Use IMU: visual-inertial vs visual-only pipeline");
     app.add_option("--use-double", use_double, "Use double not float.");
+    app.add_option("--deterministic", deterministic, "Make the pipeline output reproducible (some performance impact)");
     app.add_option("--max-frames", max_frames, "Limit number of frames to process from dataset (0 means unlimited)");
 
     try {
@@ -217,6 +216,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
       dataset_io->read(dataset_path);
 
       vio_dataset = dataset_io->get_data();
+      start_t_ns = vio_dataset->get_image_timestamps().front();
 
       show_frame.Meta().range[1] = vio_dataset->get_image_timestamps().size() - 1;
       show_frame.Meta().gui_changed = true;
@@ -230,7 +230,6 @@ struct basalt_vio_ui : vis::VIOUIBase {
       }
     }
 
-    const int64_t start_t_ns = vio_dataset->get_image_timestamps().front();
     {
       vio = basalt::VioEstimatorFactory::getVioEstimator(config, calib, basalt::constants::g, use_imu, use_double);
       vio->initialize(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
@@ -286,41 +285,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
         std::cout << "Finished t3" << std::endl;
       });
 
-    state_consumer_thread = thread([&]() {
-      basalt::PoseVelBiasState<double>::Ptr data;
-
-      while (true) {
-        out_state_queue.pop(data);
-
-        if (!data.get()) break;
-
-        int64_t t_ns = data->t_ns;
-
-        // std::cerr << "t_ns " << t_ns << std::endl;
-        Sophus::SE3d T_w_i = data->T_w_i;
-        Eigen::Vector3d vel_w_i = data->vel_w_i;
-        Eigen::Vector3d bg = data->bias_gyro;
-        Eigen::Vector3d ba = data->bias_accel;
-
-        vio_t_ns.emplace_back(data->t_ns);
-        vio_t_w_i.emplace_back(T_w_i.translation());
-        vio_T_w_i.emplace_back(T_w_i);
-
-        if (show_gui) {
-          std::vector<float> vals;
-          vals.push_back((t_ns - start_t_ns) * 1e-9);
-
-          for (int i = 0; i < 3; i++) vals.push_back(vel_w_i[i]);
-          for (int i = 0; i < 3; i++) vals.push_back(T_w_i.translation()[i]);
-          for (int i = 0; i < 3; i++) vals.push_back(bg[i]);
-          for (int i = 0; i < 3; i++) vals.push_back(ba[i]);
-
-          vio_data_log.Log(vals);
-        }
-      }
-
-      std::cout << "Finished t4" << std::endl;
-    });
+    if (!deterministic) {
+      state_consumer_thread = thread([&]() { while (pop_state()); });
+    }
 
     if (print_queue) {
       queues_printer_thread = thread([&]() {
@@ -339,6 +306,38 @@ struct basalt_vio_ui : vis::VIOUIBase {
     if (show_gui) run_ui();
 
     return 0;
+  }
+
+  bool pop_state() {
+    basalt::PoseVelBiasState<double>::Ptr data;
+    out_state_queue.pop(data);
+
+    if (data.get() == nullptr) return false;
+
+    int64_t t_ns = data->t_ns;
+
+    Sophus::SE3d T_w_i = data->T_w_i;
+    Eigen::Vector3d vel_w_i = data->vel_w_i;
+    Eigen::Vector3d bg = data->bias_gyro;
+    Eigen::Vector3d ba = data->bias_accel;
+
+    vio_t_ns.emplace_back(data->t_ns);
+    vio_t_w_i.emplace_back(T_w_i.translation());
+    vio_T_w_i.emplace_back(T_w_i);
+
+    if (show_gui) {
+      std::vector<float> vals;
+      vals.push_back((t_ns - start_t_ns) * 1e-9);
+
+      for (int i = 0; i < 3; i++) vals.push_back(vel_w_i[i]);
+      for (int i = 0; i < 3; i++) vals.push_back(T_w_i.translation()[i]);
+      for (int i = 0; i < 3; i++) vals.push_back(bg[i]);
+      for (int i = 0; i < 3; i++) vals.push_back(ba[i]);
+
+      vio_data_log.Log(vals);
+    }
+
+    return true;
   }
 
   void print_queue_fn() {
@@ -563,7 +562,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
 
     // join other threads
     if (show_gui) vis_thread.join();
-    state_consumer_thread.join();
+    if (!deterministic) state_consumer_thread.join();
     if (print_queue) queues_printer_thread.join();
 
     // after joining all threads, print final queue sizes.
@@ -669,6 +668,8 @@ struct basalt_vio_ui : vis::VIOUIBase {
       timestamp_to_id[img->t_ns] = i;
 
       opt_flow->input_img_queue.push(img);
+
+      if (deterministic) pop_state();  // Wait for the state to be produced
     }
 
     // Indicate the end of the sequence
