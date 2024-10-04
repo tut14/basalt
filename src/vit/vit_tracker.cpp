@@ -53,27 +53,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <opencv2/core/mat.hpp>
 #include <sophus/se3.hpp>
 
-#include <chrono>
 #include <cstdio>
-#include <exception>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <thread>
-#include <unordered_set>
 
-#define ASSERT(cond, ...)                                      \
-  do {                                                         \
-    if (!(cond)) {                                             \
-      printf("Assertion failed @%s:%d\n", __func__, __LINE__); \
-      printf(__VA_ARGS__);                                     \
-      printf("\n");                                            \
-      exit(EXIT_FAILURE);                                      \
-    }                                                          \
-  } while (false);
-#define ASSERT_(cond) ASSERT(cond, "%s", #cond);
-
-static const char *timing_titles[] = {
+static std::array timing_titles = {
     "frame_ts",
     "tracker_received",
     "tracker_pushed",
@@ -89,19 +74,14 @@ static const char *timing_titles[] = {
     "tracker_consumer_pushed",
     "get_pose",
 };
-constexpr size_t TITLES_SIZE = sizeof(timing_titles) / sizeof(char *);
 
 namespace basalt::vit_implementation {
 
 using std::cout;
 using std::make_shared;
 using std::make_unique;
-using std::pair;
-using std::shared_ptr;
-using std::static_pointer_cast;
 using std::string;
 using std::thread;
-using std::to_string;
 using std::vector;
 
 struct Tracker::Implementation {
@@ -161,9 +141,7 @@ struct Tracker::Implementation {
 
   OpticalFlowInput::Ptr partial_frame;
 
-  Implementation(const vit::Config *config) {
-    cam_count = config->cam_count;
-    show_gui = config->show_ui;
+  explicit Implementation(const vit::Config *config) : show_gui(config->show_ui), cam_count(config->cam_count) {
     cout << "Basalt with cam_count=" << cam_count << ", show_gui=" << show_gui << "\n";
 
     // Basalt in its current state does not support monocular cameras, although it
@@ -198,19 +176,20 @@ struct Tracker::Implementation {
   }
 
   vit::Result enable_extension(vit::TrackerExtension ext, bool enable) {
-    int64_t ext_index = (int64_t)ext;
+    auto ext_index = (int64_t)ext;
     if (ext_index >= VIT_TRACKER_EXTENSION_COUNT) {
       std::cout << "Invalid extension: " << ext << std::endl;
       return vit::Result::VIT_ERROR_INVALID_VALUE;
     }
 
-    bool supported = ((bool *)&exts)[ext_index];
+    // TODO: Update VIT to remove NOLINTs
+    bool supported = ((bool *)&exts)[ext_index];  // NOLINT: cppcoreguidelines-pro-type-cstyle-cast
     if (!supported) {
       std::cout << "Unsupported extension: " << ext << std::endl;
       return vit::Result::VIT_ERROR_NOT_SUPPORTED;
     }
 
-    bool *enabled = &((bool *)&enabled_exts)[ext_index];
+    bool *enabled = &((bool *)&enabled_exts)[ext_index];  // NOLINT: cppcoreguidelines-pro-type-cstyle-cast
     *enabled = enable;
 
     return vit::Result::VIT_SUCCESS;
@@ -407,7 +386,7 @@ struct Tracker::Implementation {
     vio->opt_flow_lm_bundle_queue = &opt_flow_ptr->input_lm_bundle_queue;
 
     if (!marg_data_path.empty()) {
-      marg_data_saver.reset(new MargDataSaver(marg_data_path));
+      marg_data_saver = make_shared<MargDataSaver>(marg_data_path);
       vio->out_marg_queue = &marg_data_saver->in_marg_queue;
     }
   }
@@ -446,8 +425,7 @@ struct Tracker::Implementation {
     // concurrent_bounded_queue expects Erasable and Allocator named
     // requirements for the type, using a pointer because it already is. This is
     // done in the others examples as well but it is far from optimal.
-    ImuData<double>::Ptr data;
-    data.reset(new ImuData<double>);
+    auto data = make_shared<ImuData<double>>();
     data->t_ns = s->timestamp;
     data->accel = {s->ax, s->ay, s->az};
     data->gyro = {s->wx, s->wy, s->wz};
@@ -471,8 +449,8 @@ struct Tracker::Implementation {
       partial_frame->stats.enabled_exts = enabled_exts;
       if (enabled_exts.has_pose_timing) {
         partial_frame->stats.ts = s->timestamp;
-        partial_frame->stats.timings.reserve(TITLES_SIZE);
-        partial_frame->stats.timing_titles = timing_titles;
+        partial_frame->stats.timings.reserve(timing_titles.size());
+        partial_frame->stats.timing_titles = timing_titles.data();
         partial_frame->addTime("frame_ts", s->timestamp);
         partial_frame->addTime("tracker_received");
       }
@@ -487,7 +465,7 @@ struct Tracker::Implementation {
 
     // Forced to use uint16_t here, in place because of cameras with 12-bit grayscale support
     auto &mimg = partial_frame->img_data[i].img;
-    mimg.reset(new ManagedImage<uint16_t>(s->width, s->height));
+    mimg = make_shared<ManagedImage<uint16_t>>(s->width, s->height);
 
     for (uint32_t j = 0; j < s->mask_count; j++) {
       auto &r = s->masks[j];
@@ -566,7 +544,9 @@ struct Tracker::Implementation {
     return true;
   }
 
-  void state_consumer() { while (pop_state()); }
+  void state_consumer() {
+    while (pop_state()) continue;
+  }
 
   void queues_printer() {
     while (running) {

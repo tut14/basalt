@@ -33,8 +33,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <algorithm>
-
 #include <basalt/vi_estimator/landmark_database.h>
 
 namespace basalt {
@@ -95,7 +93,8 @@ template <class Scalar_>
 std::vector<TimeCamId> LandmarkDatabase<Scalar_>::getHostKfs() const {
   std::vector<TimeCamId> res;
 
-  for (const auto &kv : observations) res.emplace_back(kv.first);
+  res.reserve(observations.size());
+  for (const auto &[h, _] : observations) res.emplace_back(h);
 
   return res;
 }
@@ -142,8 +141,8 @@ const Landmark<Scalar_> &LandmarkDatabase<Scalar_>::getLandmark(LandmarkId lm_id
 }
 
 template <class Scalar_>
-const std::unordered_map<TimeCamId, std::map<TimeCamId, std::set<LandmarkId>>> &
-LandmarkDatabase<Scalar_>::getObservations() const {
+const std::unordered_map<TimeCamId, std::map<TimeCamId, std::set<LandmarkId>>>
+    &LandmarkDatabase<Scalar_>::getObservations() const {
   return observations;
 }
 

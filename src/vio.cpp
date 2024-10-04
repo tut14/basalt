@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cmath>
 #include <condition_variable>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <thread>
 
 #include <magic_enum.hpp>
@@ -82,6 +84,7 @@ using pangolin::DataLog;
 using pangolin::Plotter;
 using pangolin::Var;
 using pangolin::View;
+using std::make_shared;
 using std::shared_ptr;
 using std::thread;
 using std::unordered_map;
@@ -125,7 +128,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
   bool show_gui = true;
   std::string trajectory_fmt;
   std::string result_path;
-  bool trajectory_groundtruth;
+  bool trajectory_groundtruth = false;
   bool print_queue = false;
   std::chrono::high_resolution_clock::time_point time_start;
   bool aborted = false;
@@ -246,7 +249,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
     basalt::MargDataSaver::Ptr marg_data_saver;
 
     if (!marg_data_path.empty()) {
-      marg_data_saver.reset(new basalt::MargDataSaver(marg_data_path));
+      marg_data_saver = make_shared<basalt::MargDataSaver>(marg_data_path);
       vio->out_marg_queue = &marg_data_saver->in_marg_queue;
 
       // Save gt.
@@ -286,7 +289,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
       });
 
     if (!deterministic) {
-      state_consumer_thread = thread([&]() { while (pop_state()); });
+      state_consumer_thread = thread([&]() {
+        while (pop_state()) continue;
+      });
     }
 
     if (print_queue) {
@@ -359,12 +364,12 @@ struct basalt_vio_ui : vis::VIOUIBase {
       img_view_display->SetBounds(0.4, 1.0, 0.0, 0.4);
       img_view_display->SetLayout(pangolin::LayoutEqual);
 
-      plotter = std::make_shared<Plotter>(&imu_data_log, 0.0, 100, -10.0, 10.0, 0.01, 0.01);
+      plotter = make_shared<Plotter>(&imu_data_log, 0.0, 100, -10.0, 10.0, 0.01, 0.01);
       plot_display = &pangolin::CreateDisplay();
       plot_display->SetBounds(0.0, 0.4, UI_WIDTH, 1.0);
       plot_display->AddDisplay(*plotter);
 
-      auto blocks_view = std::make_shared<pangolin::ImageView>();
+      auto blocks_view = make_shared<pangolin::ImageView>();
       blocks_view->UseNN() = true;  // Disable antialiasing, can be toggled with N key
       blocks_view->extern_draw_function = [this](View& v) {
         draw_blocks_overlay(dynamic_cast<pangolin::ImageView&>(v));
@@ -378,7 +383,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
       pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, UI_WIDTH);
 
       while (img_view.size() < calib.intrinsics.size()) {
-        std::shared_ptr<pangolin::ImageView> iv(new pangolin::ImageView);
+        auto iv = make_shared<pangolin::ImageView>();
         iv->UseNN() = true;  // Disable antialiasing, can be toggled with N key
 
         size_t idx = img_view.size();
@@ -440,7 +445,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
 
         if (show_frame.GuiChanged()) {
           for (size_t cam_id = 0; cam_id < calib.intrinsics.size(); cam_id++) {
-            size_t frame_id = static_cast<size_t>(show_frame);
+            auto frame_id = static_cast<size_t>(show_frame);
             int64_t timestamp = vio_dataset->get_image_timestamps()[frame_id];
 
             std::vector<basalt::ImageData> img_vec = vio_dataset->get_image_data(timestamp);
@@ -893,7 +898,8 @@ struct basalt_vio_ui : vis::VIOUIBase {
         for (size_t i = 0; i < gt_t_ns.size(); i++) {
           const Eigen::Vector3d& pos = gt_t_w_i[i];
           os << std::scientific << std::setprecision(18) << gt_t_ns[i] * 1e-9 << " " << pos.x() << " " << pos.y() << " "
-             << pos.z() << " " << "0 0 0 1" << std::endl;
+             << pos.z() << " "
+             << "0 0 0 1" << std::endl;
         }
 
         os.close();

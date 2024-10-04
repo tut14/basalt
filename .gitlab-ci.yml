@@ -1,11 +1,22 @@
 # SPDX-License-Identifier: CC0-1.0
 # SPDX-FileCopyrightText: 2023 Collabora, Ltd.
 
+# TODO: The CI for clang-format and clang-tidy are preliminary.
+# - clang-format-all: Runs clang-format on all files. clang-format-diff exists.
+# - clangd-tidy-diff-files: Runs a fast subset of clang-tidy through clangd.
+#   There exists clang-tidy-diff but it was slow when I tried it and it didn't
+#   show warnings on lines that the full clang-tidy showed.
+# - I am downloading some things on the CI that could be predownloaded in the
+#   docker image
+
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+  CLANG_VERSION: "15"
+  CLANG_FORMAT: "clang-format-$CLANG_VERSION"
 
 stages:
   - build
+  - analyze
   - release
 
 build-ubuntu-2204:
@@ -25,6 +36,35 @@ build-ubuntu-2204:
       - "basalt-monado-ubuntu-22.04-haswell-amd64.deb"
     reports:
       dotenv: release.env
+
+clangd-tidy-diff-files:
+  stage: analyze
+  image: registry.freedesktop.org/mateosss/basalt/ubuntu/22.04
+  when: manual
+  script:
+    - git fetch origin $CI_DEFAULT_BRANCH
+    - apt-get update && apt-get install -y unzip python3.10-venv
+    - export CLANGD_URL=$(curl -s https://api.github.com/repos/clangd/clangd/releases/latest | grep "browser_download_url.*clangd-linux.*zip" | cut -d ":" -f 2,3 | tr -d \")
+    - echo $CLANGD_URL
+    - curl -L --silent --show-error --fail $CLANGD_URL -o clangd-linux.zip
+    - unzip -q clangd-linux.zip
+    - rm clangd-linux.zip
+    - mv clangd* clangd
+    - python3 -m venv .venv
+    - source .venv/bin/activate
+    - pip install clangd-tidy
+    - cmake -B build
+    - git diff origin/$CI_DEFAULT_BRANCH --name-only | xargs clangd-tidy --clangd-executable=clangd/bin/clangd -p build -j $(nproc) --github --color always
+
+clang-format-all:
+  stage: analyze
+  image: registry.freedesktop.org/mateosss/basalt/ubuntu/22.04
+  when: manual
+  script:
+    - apt-get update && apt-get install -y $CLANG_FORMAT
+    - $CLANG_FORMAT --version
+    - ./scripts/clang-format-all.sh
+    - git diff --exit-code
 
 release:
   stage: release

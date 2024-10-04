@@ -43,16 +43,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Dense>
 
-#include <iostream>
-#include <limits>
 #include <thread>
 
 #include <basalt/calibration/aprilgrid.h>
 #include <basalt/calibration/calibration_helper.h>
 #include <basalt/image/image.h>
 #include <basalt/utils/test_utils.h>
-#include <basalt/utils/sophus_utils.hpp>
 #include <basalt/utils/vis_utils.h>
+#include <basalt/utils/sophus_utils.hpp>
 
 namespace basalt {
 

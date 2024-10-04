@@ -40,7 +40,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <memory>
@@ -68,12 +67,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/vi_estimator/vio_estimator.h>
 
 #define ASSERT(cond, ...)                                      \
-  do {                                                         \
+  do { /* NOLINT(cppcoreguidelines-avoid-do-while) */          \
     if (!(cond)) {                                             \
       printf("Assertion failed @%s:%d\n", __func__, __LINE__); \
       printf(__VA_ARGS__);                                     \
       printf("\n");                                            \
-      exit(EXIT_FAILURE);                                      \
+      exit(EXIT_FAILURE); /* NOLINT(concurrency-mt-unsafe) */  \
     }                                                          \
   } while (false);
 #define ASSERT_(cond) ASSERT(cond, "%s", #cond);
