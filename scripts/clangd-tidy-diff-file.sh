@@ -4,4 +4,4 @@
 # SPDX-License-Identifier: BSL-1.0
 # Author: Mateo de Mayo <mateo.demayo@tum.de>
 
-git diff main --name-only | xargs clangd-tidy -p build -j (nproc) --github --color always
+git diff main --name-only | xargs clangd-tidy -p build -j $(nproc) --github --color always

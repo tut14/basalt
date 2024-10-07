@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <basalt/calibration/calibration_helper.h>
 
-#ifndef BASALT_BUILD_SHARED_LIBRARY_ONLYq
+#ifndef BASALT_BUILD_SHARED_LIBRARY_ONLY
 #include <basalt/utils/apriltag.h>
 #endif
 
@@ -218,7 +218,7 @@ bool CalibHelper::initializeIntrinsics(const Eigen::aligned_vector<Eigen::Vector
       if (P.size() > MIN_CORNERS) {
         // Resize P to fit with the count of valid points.
 
-        Eigen::Map<Eigen::Matrix4Xd> P_mat((double *)P.data(), 4, P.size());
+        Eigen::Map<Eigen::Matrix4Xd> P_mat(P[0].data(), 4, P.size());
 
         // std::cerr << "P_mat\n" << P_mat.transpose() << std::endl;
 
@@ -290,7 +290,7 @@ bool CalibHelper::initializeIntrinsics(const Eigen::aligned_vector<Eigen::Vector
   return success;
 }
 
-bool CalibHelper::initializeIntrinsicsPinhole(const std::vector<CalibCornerData *> pinhole_corners,
+bool CalibHelper::initializeIntrinsicsPinhole(const std::vector<CalibCornerData *> &pinhole_corners,
                                               const AprilGrid &aprilgrid, int cols, int rows,
                                               Eigen::Vector4d &init_intr) {
   // First, initialize the image center at the center of the image.
@@ -308,7 +308,7 @@ bool CalibHelper::initializeIntrinsicsPinhole(const std::vector<CalibCornerData 
   Eigen::MatrixXd A(nImages * 2, 2);
   Eigen::VectorXd b(nImages * 2, 1);
 
-  int i = 0;
+  Eigen::Index i = 0;
 
   for (const CalibCornerData *ccd : pinhole_corners) {
     const auto &corners = ccd->corners;
@@ -356,9 +356,7 @@ bool CalibHelper::initializeIntrinsicsPinhole(const std::vector<CalibCornerData 
       n[3] += d2[j] * d2[j];
     }
 
-    for (int j = 0; j < 4; ++j) {
-      n[j] = 1.0 / sqrt(n[j]);
-    }
+    for (double &j : n) j = 1.0 / sqrt(j);
 
     for (int j = 0; j < 3; ++j) {
       h[j] *= n[0];

@@ -13,21 +13,12 @@ Basalt authors.
   sudo apt install -y ./basalt-monado-ubuntu-22.04-haswell-amd64.deb
   ```
 
-- **From source (minimal)**
+- **From source**
 
   ```bash
   git clone --recursive https://gitlab.freedesktop.org/mateosss/basalt.git
   cd basalt && ./scripts/install_deps.sh
-  cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBASALT_BUILD_SHARED_LIBRARY_ONLY=on
-  sudo cmake --build build --target install
-  ```
-
-- **From source (with extra binaries and debug symbols)**
-
-  ```bash
-  git clone --recursive https://gitlab.freedesktop.org/mateosss/basalt.git
-  cd basalt && ./scripts/install_deps.sh
-  cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBASALT_INSTANTIATIONS_DOUBLE=off -DBUILD_TESTS=off
+  cmake --preset library # use "development" instead of "library" if you want extra binaries and debug symbols
   sudo cmake --build build --target install
   ```
 

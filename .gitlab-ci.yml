@@ -54,7 +54,10 @@ clangd-tidy-diff-files:
     - source .venv/bin/activate
     - pip install clangd-tidy
     - cmake -B build
-    - git diff origin/$CI_DEFAULT_BRANCH --name-only | xargs clangd-tidy --clangd-executable=clangd/bin/clangd -p build -j $(nproc) --github --color always
+    - git diff origin/$CI_DEFAULT_BRANCH --exit-code || IN_MR=$?
+    - (( $IN_MR )) && COMPARISON_BRANCH=origin/$CI_DEFAULT_BRANCH || COMPARISON_BRANCH=HEAD~1
+    - echo $COMPARISON_BRANCH
+    - git diff $COMPARISON_BRANCH --name-only | xargs clangd-tidy --clangd-executable=clangd/bin/clangd -p build -j $(nproc) --github --color always
 
 clang-format-all:
   stage: analyze

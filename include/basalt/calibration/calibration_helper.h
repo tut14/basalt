@@ -85,7 +85,7 @@ class CalibHelper {
                                    const std::vector<int>& corner_ids, const AprilGrid& aprilgrid, int cols, int rows,
                                    Eigen::Vector4d& init_intr);
 
-  static bool initializeIntrinsicsPinhole(const std::vector<CalibCornerData*> pinhole_corners,
+  static bool initializeIntrinsicsPinhole(const std::vector<CalibCornerData*>& pinhole_corners,
                                           const AprilGrid& aprilgrid, int cols, int rows, Eigen::Vector4d& init_intr);
 
  private:
