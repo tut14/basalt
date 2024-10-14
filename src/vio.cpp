@@ -87,13 +87,10 @@ using pangolin::View;
 using std::make_shared;
 using std::shared_ptr;
 using std::thread;
-using std::unordered_map;
 using vis::Button;
 using UIMAT = vis::UIMAT;
 
 struct basalt_vio_ui : vis::VIOUIBase {
-  unordered_map<int64_t, VioVisualizationData::Ptr> vis_map;
-
   VioDatasetPtr vio_dataset;
   int64_t start_t_ns = -1;
 
@@ -154,6 +151,28 @@ struct basalt_vio_ui : vis::VIOUIBase {
   Var<bool> kitti_fmt{"ui.kitti_fmt", false, true};
   Var<bool> save_groundtruth{"ui.save_groundtruth", false, true};
   Button save_traj_btn{"ui.save_traj", [this]() { saveTrajectoryButton(); }};
+
+  struct OfflineVIOImageView : vis::VIOImageView {
+    basalt_vio_ui& vio_ui;
+    OfflineVIOImageView(basalt_vio_ui& ui) : VIOImageView(ui), vio_ui(ui) {}
+    void Keyboard(View& view, unsigned char key, int x, int y, bool pressed) override {
+      bool released = !pressed;
+      if (key == ' ' && released) {
+        vio_ui.continue_btn = !vio_ui.continue_btn;
+        vio_ui.continue_btn.Meta().gui_changed = true;
+      } else if (key == '.' && pressed) {
+        vio_ui.next_step();
+      } else if (key == ',' && pressed) {
+        vio_ui.prev_step();
+      } else if (key == '>' && pressed) {
+        vio_ui.next_step(10);
+      } else if (key == '<' && pressed) {
+        vio_ui.prev_step(10);
+      } else {
+        vis::VIOImageView::Keyboard(view, key, x, y, pressed);
+      }
+    }
+  };
 
   int start(int argc, char** argv) {
     bool print_queue = false;
@@ -369,11 +388,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
       plot_display->SetBounds(0.0, 0.4, UI_WIDTH, 1.0);
       plot_display->AddDisplay(*plotter);
 
-      auto blocks_view = make_shared<pangolin::ImageView>();
+      blocks_view = make_shared<pangolin::ImageView>();
       blocks_view->UseNN() = true;  // Disable antialiasing, can be toggled with N key
-      blocks_view->extern_draw_function = [this](View& v) {
-        draw_blocks_overlay(dynamic_cast<pangolin::ImageView&>(v));
-      };
+      blocks_view->extern_draw_function = [this](View& /*v*/) { draw_blocks_overlay(); };
       const int DEFAULT_W = 480;
       blocks_display = &pangolin::CreateDisplay();
       blocks_display->SetBounds(0.0, 0.6, UI_WIDTH, pangolin::Attach::Pix(UI_WIDTH_PIX + DEFAULT_W));
@@ -383,7 +400,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
       pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, UI_WIDTH);
 
       while (img_view.size() < calib.intrinsics.size()) {
-        auto iv = make_shared<pangolin::ImageView>();
+        auto iv = make_shared<OfflineVIOImageView>(*this);
         iv->UseNN() = true;  // Disable antialiasing, can be toggled with N key
 
         size_t idx = img_view.size();
@@ -459,9 +476,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
               img_view[cam_id]->SetImage(img_vec[cam_id].img->ptr, img_vec[cam_id].img->w, img_vec[cam_id].img->h,
                                          img_vec[cam_id].img->pitch, fmt);
           }
-          if (follow_highlight) do_follow_highlight(false);
+          if (follow_highlight) do_follow_highlight(true, false);
 
-          if (show_blocks) do_show_blocks(blocks_view);
+          if (show_blocks) do_show_blocks();
 
           draw_plots();
         }
@@ -476,20 +493,17 @@ struct basalt_vio_ui : vis::VIOUIBase {
           highlights = vis::parse_selection(highlight_landmarks);
           filter_highlights = filter_highlights && !highlights.empty();
           for (const auto& [ts, vis] : vis_map) vis->invalidate_mat_imgs();
-          if (show_blocks) do_show_blocks(blocks_view);
+          if (show_blocks) do_show_blocks();
         }
 
         if (mat_to_show.GuiChanged()) {
           mat_name = std::string(magic_enum::enum_name((UIMAT)mat_to_show.Get()));
-          if (show_blocks) do_show_blocks(blocks_view);
+          if (show_blocks) do_show_blocks();
         }
 
         if (follow_highlight.GuiChanged()) {
-          follow_highlight = follow_highlight && highlights.size() == 1 && !highlights[0].is_range;
-          if (follow_highlight)
-            do_follow_highlight(true);
-          else
-            for (auto& v : img_view) v->ResetView();
+          follow_highlight = follow_highlight && !highlights.empty();
+          do_follow_highlight(follow_highlight, true);
         }
 
         if (euroc_fmt.GuiChanged()) {
@@ -813,9 +827,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
     }
   }
 
-  bool next_step() {
-    if (show_frame < int(vio_dataset->get_image_timestamps().size()) - 1) {
-      show_frame = show_frame + 1;
+  bool next_step(int steps = 1) {
+    if (show_frame < int(vio_dataset->get_image_timestamps().size()) - steps) {
+      show_frame = show_frame + steps;
       show_frame.Meta().gui_changed = true;
       cvar.notify_one();
       return true;
@@ -824,9 +838,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
     }
   }
 
-  bool prev_step() {
-    if (show_frame >= 1) {
-      show_frame = show_frame - 1;
+  bool prev_step(int steps = 1) {
+    if (show_frame >= steps) {
+      show_frame = show_frame - steps;
       show_frame.Meta().gui_changed = true;
       return true;
     } else {

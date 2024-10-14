@@ -44,9 +44,13 @@ extern "C" const unsigned char AnonymousPro_ttf[];
 
 namespace basalt::vis {
 
-pangolin::GlFont SMALL_FONT(pangolin::AnonymousPro_ttf, 11);
-pangolin::Params default_win_params({{std::string("default_font_size"), std::string("15")}});
-pangolin::GlFont FONT(pangolin::AnonymousPro_ttf, 14);
+using pangolin::KeyModifierCtrl;
+using pangolin::KeyModifierShift;
+using std::max;
+
+pangolin::GlFont SMALL_FONT(pangolin::AnonymousPro_ttf, 11);                                   // NOLINT(cert-err58-cpp)
+pangolin::Params default_win_params({{std::string("default_font_size"), std::string("15")}});  // NOLINT(cert-err58-cpp)
+pangolin::GlFont FONT(pangolin::AnonymousPro_ttf, 14);                                         // NOLINT(cert-err58-cpp)
 
 bool try_draw_image_text(pangolin::ImageView& view, float x, float y, const pangolin::GlText& text) {
   float xwin = -1;
@@ -76,7 +80,28 @@ static std::pair<size_t, const uint8_t*> get_frame_id_and_color(const VioVisuali
   }
 }
 
-bool VIOUIBase::highligh_frame() {
+KeypointId VIOUIBase::get_kpid_at(size_t cam_id, int x, int y, float radius) {
+  VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
+  if (curr_vis_data == nullptr) return -1;
+
+  float min_dist = std::numeric_limits<float>::max();
+  KeypointId best_kpid = -1;
+
+  Keypoints& keypoints = curr_vis_data->opt_flow_res->keypoints.at(cam_id);
+  for (const auto& [kpid, kpt] : keypoints) {
+    float u = kpt.translation().x();
+    float v = kpt.translation().y();
+    float dist_to_kp = sqrt((u - x) * (u - x) + (v - y) * (v - y));
+    if (dist_to_kp < radius && dist_to_kp < min_dist) {
+      min_dist = dist_to_kp;
+      best_kpid = kpid;
+    }
+  }
+
+  return best_kpid;
+}
+
+bool VIOUIBase::highlight_frame() {
   VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return false;
 
@@ -84,19 +109,48 @@ bool VIOUIBase::highligh_frame() {
   for (const auto& kps : get_curr_vis_data()->opt_flow_res->keypoints)
     for (const auto& [kpid, kp] : kps) kpids.insert(kpid);
 
-  std::string str = highlight_landmarks;
-  str.reserve(str.size() + kpids.size() * 10);
-  for (const KeypointId& kpid : kpids) str += std::to_string(kpid) + ",";
-  if (!str.empty()) str.pop_back();
-
-  highlight_landmarks = str;
+  for (const KeypointId& kpid : kpids) highlights.emplace_back(false, kpid, -1);
+  highlight_landmarks = selection_to_string(highlights);
   highlight_landmarks.Meta().gui_changed = true;
 
   return true;
 }
 
+bool VIOUIBase::highlight_kps_in_rect(size_t cam_id, float l, float r, float t, float b) {
+  VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
+  if (curr_vis_data == nullptr) return false;
+
+  std::set<KeypointId> kpids{};
+  const Keypoints& kps = get_curr_vis_data()->opt_flow_res->keypoints.at(cam_id);
+  for (const auto& [kpid, kp] : kps) {
+    float u = kp.translation().x();
+    float v = kp.translation().y();
+    if (u >= l && u <= r && v >= t && v <= b) kpids.insert(kpid);
+  }
+
+  for (const KeypointId& kpid : kpids) highlights.emplace_back(false, kpid, -1);
+  highlight_landmarks = selection_to_string(highlights);
+  highlight_landmarks.Meta().gui_changed = true;
+
+  return !kpids.empty();
+}
+
+void VIOUIBase::clear_highlights() {
+  if (highlights.empty()) return;
+
+  for (const auto& [ts, vis] : vis_map) vis->invalidate_mat_imgs();
+  if (show_blocks) do_show_blocks();
+  if (follow_highlight) do_follow_highlight(false, true);
+
+  highlights.clear();
+  highlight_landmarks = "";
+  filter_highlights = false;
+  show_highlights = false;
+  follow_highlight = false;
+}
+
 bool VIOUIBase::toggle_blocks() {
-  show_blocks = do_toggle_blocks(blocks_display, plot_display, img_view_display, UI_WIDTH);
+  show_blocks = do_toggle_blocks();
   return show_blocks;
 }
 
@@ -154,6 +208,8 @@ void VIOUIBase::do_show_highlights(size_t cam_id) {
   if (curr_vis_data == nullptr) return;
 
   pangolin::ImageView& view = *img_view.at(cam_id);
+  float zoom = view.GetViewScale();
+  float radius = max(HIGHLIGHT_RADIUS / zoom, 5.0f);
 
   glColor3ubv(vis::GREEN);
 
@@ -166,7 +222,7 @@ void VIOUIBase::do_show_highlights(size_t cam_id) {
     if (!is_selected(highlights, kpid)) continue;
     float u = kpt.translation().x();
     float v = kpt.translation().y();
-    pangolin::glDrawCirclePerimeter(u, v, 3);
+    pangolin::glDrawCirclePerimeter(u, v, radius);
     if (show_ids) try_draw_image_text(view, u, v + 5, FONT.Text("%lu", kpid));
   }
 }
@@ -457,8 +513,8 @@ void VIOUIBase::do_show_grid() {
 void VIOUIBase::do_show_safe_radius() {
   if (config.optical_flow_image_safe_radius == 0) return;
   glColor4f(1.0, 0.0, 1.0, 0.25);
-  int w = calib.resolution.at(0).x();
-  int h = calib.resolution.at(0).y();
+  float w = calib.resolution.at(0).x();
+  float h = calib.resolution.at(0).y();
   pangolin::glDrawCirclePerimeter(w / 2, h / 2, config.optical_flow_image_safe_radius);
 }
 
@@ -611,23 +667,23 @@ void VIOUIBase::do_show_obs(size_t cam_id) {
   }
 }
 
-void VIOUIBase::draw_blocks_overlay(pangolin::ImageView& blocks_view) {
+void VIOUIBase::draw_blocks_overlay() {
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
 
-  UIMAT m = (UIMAT)mat_to_show.Get();
+  auto m = UIMAT{mat_to_show.Get()};
   if (is_jacobian(m)) {
     UIJacobians& uijac = curr_vis_data->getj(m);
-    draw_jacobian_overlay(blocks_view, uijac);
+    draw_jacobian_overlay(uijac);
   } else if (is_hessian(m)) {
     UIHessians& uihes = curr_vis_data->geth(m);
-    draw_hessian_overlay(blocks_view, uihes);
+    draw_hessian_overlay(uihes);
   } else {
     BASALT_ASSERT(false);
   }
 }
 
-void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UIJacobians& uij) {
+void VIOUIBase::draw_jacobian_overlay(const UIJacobians& uij) {
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
 
@@ -637,7 +693,7 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
   const std::vector<UILandmarkBlock>& lmbs = uibs->blocks;
   if (lmbs.empty()) return;
 
-  size_t pad = show_ids ? 12 : 0;
+  float pad = show_ids ? 12 : 0;
   size_t w = uibs->getW();
   size_t h = uibs->getH();
   size_t W = w + pad;
@@ -659,7 +715,7 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
       auto [fid, fid_color] = get_frame_id_and_color(curr_vis_data, ts);
       glColor3ubv(fid_color);
       auto text = FONT.Text("%lu", fid);
-      try_draw_image_text(blocks_view, xoff + idx, pad / 2, text);
+      try_draw_image_text(*blocks_view, xoff + idx, pad / 2, text);
       glColor3ubv(BLUE);
     }
   }
@@ -676,7 +732,7 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
 
     if (show_ids) {
       auto text = FONT.Text("%lu", b.lmid);
-      try_draw_image_text(blocks_view, xoffh + 2, yoff + i + b.storage->rows() / 2.0F, text);
+      try_draw_image_text(*blocks_view, xoffh + 2, yoff + i + b.storage->rows() / 2.0F, text);
     }
 
     if (show_block_vals) {  // Draw cell values
@@ -689,7 +745,7 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
           float v = i + y + yoff;
           glColor3ubv(c > 0 ? GREEN : RED);
           auto text = SMALL_FONT.Text("%.2f", abs(c));
-          try_draw_image_text(blocks_view, u, v, text);
+          try_draw_image_text(*blocks_view, u, v, text);
         }
       }
     }
@@ -698,7 +754,7 @@ void VIOUIBase::draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UI
   }
 }
 
-void VIOUIBase::draw_hessian_overlay(pangolin::ImageView& blocks_view, const UIHessians& uihes) {
+void VIOUIBase::draw_hessian_overlay(const UIHessians& uihes) {
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
 
@@ -708,7 +764,7 @@ void VIOUIBase::draw_hessian_overlay(pangolin::ImageView& blocks_view, const UIH
   const auto b = uihes.b;
   const auto aom = uihes.aom;
 
-  size_t pad = show_ids ? 6 : 0;
+  float pad = show_ids ? 6 : 0;
   size_t w = H->cols() + 1;
   size_t h = H->rows();
   size_t pw = w + pad;
@@ -733,8 +789,8 @@ void VIOUIBase::draw_hessian_overlay(pangolin::ImageView& blocks_view, const UIH
       auto [fid, fid_color] = get_frame_id_and_color(curr_vis_data, ts);
       glColor3ubv(fid_color);
       auto text = FONT.Text("%lu", fid);
-      try_draw_image_text(blocks_view, xoff + idx, pad / 2, text);
-      try_draw_image_text(blocks_view, 0, yoff + idx + pad / 2, text);
+      try_draw_image_text(*blocks_view, xoff + idx, pad / 2, text);
+      try_draw_image_text(*blocks_view, 0, yoff + idx + pad / 2, text);
       glColor3ubv(BLUE);
     }
   }
@@ -747,14 +803,13 @@ void VIOUIBase::draw_hessian_overlay(pangolin::ImageView& blocks_view, const UIH
         if (c == 0) continue;
         glColor3ubv(c > 0 ? GREEN : RED);
         auto text = SMALL_FONT.Text("%.2f", abs(c));
-        try_draw_image_text(blocks_view, x + xoff - 0.25, yoff + y, text);
+        try_draw_image_text(*blocks_view, x + xoff - 0.25, yoff + y, text);
       }
     }
   }
 }
 
-bool VIOUIBase::do_toggle_blocks(pangolin::View* blocks_display, pangolin::View* plot_display,
-                                 pangolin::View* img_view_display, pangolin::Attach UI_WIDTH) {
+bool VIOUIBase::do_toggle_blocks() {
   blocks_display->ToggleShow();
   bool show_blocks = blocks_display->IsShown();
 
@@ -766,7 +821,8 @@ bool VIOUIBase::do_toggle_blocks(pangolin::View* blocks_display, pangolin::View*
     return show_blocks;
   }
 
-  pangolin::ImageView* last_img_view = (pangolin::ImageView*)&img_view_display->VisibleChild(child_count - 1);
+  View* last_view = &img_view_display->VisibleChild(child_count - 1);
+  auto* last_img_view = dynamic_cast<pangolin::ImageView*>(last_view);
   pangolin::XYRangef range = last_img_view->GetDefaultView();
   float xmax = -1;
   float ymax = -1;
@@ -780,23 +836,23 @@ bool VIOUIBase::do_toggle_blocks(pangolin::View* blocks_display, pangolin::View*
   return show_blocks;
 }
 
-void VIOUIBase::do_show_blocks(const shared_ptr<ImageView>& blocks_view) {
+void VIOUIBase::do_show_blocks() {
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
 
-  UIMAT m = (UIMAT)mat_to_show.Get();
+  auto m = UIMAT{mat_to_show.Get()};
   if (is_jacobian(m)) {
     UIJacobians& uijac = curr_vis_data->getj(m);
-    do_show_jacobian(blocks_view, uijac);
+    do_show_jacobian(uijac);
   } else if (is_hessian(m)) {
     UIHessians& uihes = curr_vis_data->geth(m);
-    do_show_hessian(blocks_view, uihes);
+    do_show_hessian(uihes);
   } else {
     BASALT_ASSERT(false);
   }
 }
 
-void VIOUIBase::do_show_hessian(const shared_ptr<ImageView>& blocks_view, UIHessians& uih) {
+void VIOUIBase::do_show_hessian(UIHessians& uih) {
   if (uih.H == nullptr || uih.b == nullptr) return;
 
   const auto H = uih.H;
@@ -857,7 +913,7 @@ void VIOUIBase::do_show_hessian(const shared_ptr<ImageView>& blocks_view, UIHess
   blocks_view->SetImage(mat->ptr, mat->w, mat->h, mat->pitch, fmt);
 }
 
-void VIOUIBase::do_show_jacobian(const shared_ptr<ImageView>& blocks_view, UIJacobians& uij) {
+void VIOUIBase::do_show_jacobian(UIJacobians& uij) {
   UILandmarkBlocks::Ptr uibs = uij.Jr;
   std::shared_ptr<ManagedImage<uint8_t>> mat;
 
@@ -952,7 +1008,7 @@ Selection parse_selection(const string& str) {
       bool is_range = dash_pos != string::npos;
       size_t a = stoull(token.substr(0, dash_pos));
       size_t b = is_range ? stoull(token.substr(dash_pos + 1)) : -1;
-      nodes.push_back({is_range, a, b});
+      nodes.emplace_back(is_range, a, b);
     }
   } catch (...) {
     std::cout << "Invalid selection string: " << str << std::endl;
@@ -961,13 +1017,74 @@ Selection parse_selection(const string& str) {
   return nodes;
 }
 
+//! Get string from Selection
+string selection_to_string(const Selection& selection) {
+  string str;
+  for (const SelectionNode& node : selection) {
+    if (node.is_range) {
+      str += std::to_string(node.a) + "-" + std::to_string(node.b);
+    } else {
+      str += std::to_string(node.a);
+    }
+    str += ",";
+  }
+  if (!str.empty()) str.pop_back();
+  return str;
+}
+
+//! Return a new selection without @p kpids
+Selection remove_from_selection(const Selection& selection, const std::set<KeypointId>& kpids) {
+  Selection new_selection{};
+
+  for (const KeypointId& kpid : kpids) {
+    for (const SelectionNode& node : selection) {
+      if (node.contains(kpid)) {
+        if (node.is_range) {
+          if (node.a < kpid) new_selection.emplace_back(node.is_range, node.a, kpid - 1);
+          if (node.b > kpid) new_selection.emplace_back(node.is_range, kpid + 1, node.b);
+        }
+      } else {
+        new_selection.push_back(node);
+      }
+    }
+  }
+
+  return new_selection;
+}
+
+Keypoints filter_kps_by_selection(const Selection& selection, const Keypoints& kps) {
+  Keypoints filtered_kps;
+  for (const auto& [kpid, kp] : kps)
+    if (is_selected(selection, kpid)) filtered_kps[kpid] = kp;
+  return filtered_kps;
+}
+
+void get_rect_containing_kps(const Keypoints& kpids, float& l, float& r, float& t, float& b) {
+  l = std::numeric_limits<float>::max();
+  r = -std::numeric_limits<float>::max();
+  t = std::numeric_limits<float>::max();
+  b = -std::numeric_limits<float>::max();
+  for (const auto& [kpid, kp] : kpids) {
+    l = std::min(l, kp.translation().x());
+    r = std::max(r, kp.translation().x());
+    t = std::min(t, kp.translation().y());
+    b = std::max(b, kp.translation().y());
+  }
+}
+
 bool is_selected(const Selection& selection, size_t n) {
   for (const SelectionNode& node : selection)
     if (node.contains(n)) return true;
   return false;
 }
 
-bool VIOUIBase::do_follow_highlight(bool smooth_zoom) {
+bool VIOUIBase::do_follow_highlight(bool follow, bool smooth_zoom) {
+  if (!follow) {
+    BASALT_ASSERT_MSG(smooth_zoom, "Unfollow without smooth zoom not implemented");
+    for (auto& v : img_view) v->ResetView();
+    return true;
+  }
+
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return false;
 
@@ -975,7 +1092,7 @@ bool VIOUIBase::do_follow_highlight(bool smooth_zoom) {
     std::shared_ptr<pangolin::ImageView> v = img_view.at(cam_id);
     if (v == nullptr) continue;
 
-    if (highlights.size() != 1 || highlights[0].is_range) {
+    if (highlights.size() == 0) {
       v->ResetView();
       continue;
     };
@@ -987,24 +1104,49 @@ bool VIOUIBase::do_follow_highlight(bool smooth_zoom) {
     };
 
     const Keypoints& camkps = keypoints[cam_id];
-    size_t kpid = highlights[0].a;
-    if (camkps.count(kpid) == 0) {
+
+    Keypoints hlkps = filter_kps_by_selection(highlights, camkps);
+    if (hlkps.empty()) {
       v->ResetView();
       continue;
     };
 
-    Vector2f kp = camkps.at(kpid).translation();
+    // Containing rect
+    float l = -1;
+    float r = -1;
+    float t = -1;
+    float b = -1;
+    get_rect_containing_kps(hlkps, l, r, t, b);
 
     pangolin::XYRangef full_range = v->GetDefaultView();
     const float w = full_range.x.AbsSize();
     const float h = full_range.y.AbsSize();
 
-    const float tw = 32;
-    const float th = (tw / w) * h;
-    float l = kp.x() - tw / 2;
-    float r = kp.x() + tw / 2;
-    float t = kp.y() - th / 2;
-    float b = kp.y() + th / 2;
+    // Transform rect to have the correct aspect ratio
+    float rect_w = r - l;
+    float rect_h = b - t;
+    float pad_w = -1;
+    float pad_h = -1;
+    float pad = 32;
+    if (rect_w > rect_h) {
+      float view_h = (rect_w / w) * h;
+      t -= (view_h - rect_h) / 2;
+      b += (view_h - rect_h) / 2;
+      pad_w = pad;
+      pad_h = (pad_w / w) * h;
+    } else {
+      float view_w = (rect_h / h) * w;
+      l -= (view_w - rect_w) / 2;
+      r += (view_w - rect_w) / 2;
+      pad_h = pad;
+      pad_w = (pad_h / h) * w;
+    }
+
+    // And finally pad the view rect a bit with 32 pixels
+    l -= pad_w / 2;
+    r += pad_w / 2;
+    t -= pad_h / 2;
+    b += pad_h / 2;
     pangolin::XYRangef zoomed_range = {{l, r}, {t, b}};
 
     if (smooth_zoom)
@@ -1020,6 +1162,105 @@ void VIOUIBase::do_render_camera(const Sophus::SE3d& T_w_c, size_t i, size_t ts,
   if (curr_vis_data == nullptr) return;
   auto [fid, fid_color] = get_frame_id_and_color(curr_vis_data, ts);
   render_camera(T_w_c.matrix(), 2.0F, color, 0.1F, show_ids && i == 0, fid, fid_color);
+}
+
+VIOImageView::VIOImageView(VIOUIBase& ui) : ImageView(), ui(ui) {}
+
+void VIOImageView::Mouse(View& view, MouseButton button, int x_screen, int y_screen, bool pressed, int button_state) {
+  bool shift_pressed = unsigned(button_state) & KeyModifierShift;
+  bool ctrl_pressed = unsigned(button_state) & KeyModifierCtrl;
+  ImageView::Mouse(view, button, x_screen, y_screen, pressed, button_state);
+
+  size_t cam_id = 0;
+  for (; cam_id < ui.img_view.size(); cam_id++)
+    if (ui.img_view.at(cam_id).get() == &view) break;
+  BASALT_ASSERT(cam_id < ui.img_view.size());
+
+  if (button == MouseButton::MouseButtonLeft && pressed) {
+    auto* img_view = dynamic_cast<pangolin::ImageView*>(&view);
+    float zoom = img_view->GetViewScale();
+    float radius = max(HIGHLIGHT_RADIUS / zoom, 5.0f);
+    float x_img = -1;
+    float y_img = -1;
+    this->ScreenToImage(this->v, x_screen, y_screen, x_img, y_img);
+
+    KeypointId kpid = ui.get_kpid_at(cam_id, x_img, y_img, radius);
+    if (kpid == KeypointId(-1)) return;
+
+    if (ui.is_highlighted(kpid)) {  // Unselect if already highlighted
+      ui.highlights = remove_from_selection(ui.highlights, {kpid});
+      ui.highlight_landmarks = selection_to_string(ui.highlights);
+      if (ui.highlights.empty()) ui.filter_highlights = false;
+      if (ui.highlights.empty()) ui.show_highlights = false;
+      for (const auto& [ts, vis] : ui.vis_map) vis->invalidate_mat_imgs();
+      if (ui.show_blocks) ui.do_show_blocks();
+    } else if (shift_pressed) {  // Shift+LMB: Add to highlights
+      ui.highlights.emplace_back(false, kpid, -1);
+      ui.highlight_landmarks = selection_to_string(ui.highlights);
+      ui.show_highlights = true;
+      for (const auto& [ts, vis] : ui.vis_map) vis->invalidate_mat_imgs();
+      if (ui.show_blocks) ui.do_show_blocks();
+    } else if (ctrl_pressed) {  // Ctrl+LMB: Follow a single keypoint
+      ui.highlights = {{false, kpid, size_t(-1)}};
+      ui.highlight_landmarks = selection_to_string(ui.highlights);
+      ui.filter_highlights = true;
+      ui.show_highlights = true;
+      ui.follow_highlight = true;
+      for (const auto& [ts, vis] : ui.vis_map) vis->invalidate_mat_imgs();
+      if (ui.show_blocks) ui.do_show_blocks();
+      ui.do_follow_highlight(true, true);
+    } else {  // LMB: Highlight a single keypoint
+      ui.highlights = {{false, kpid, size_t(-1)}};
+      ui.highlight_landmarks = selection_to_string(ui.highlights);
+      ui.filter_highlights = false;
+      ui.show_highlights = true;
+      for (const auto& [ts, vis] : ui.vis_map) vis->invalidate_mat_imgs();
+      if (ui.show_blocks) ui.do_show_blocks();
+    }
+  }
+  if (button == MouseButton::MouseButtonLeft && mouseReleased) {
+    if (selection.Area() > 0.0001) {
+      float l = selection.x.min;
+      float r = selection.x.max;
+      float t = selection.y.min;
+      float b = selection.y.max;
+      bool selected = ui.highlight_kps_in_rect(cam_id, l, r, t, b);
+      if (selected) {
+        ui.show_highlights = true;
+        for (const auto& [ts, vis] : ui.vis_map) vis->invalidate_mat_imgs();
+        if (ui.show_blocks) ui.do_show_blocks();
+      }
+    }
+  }
+}
+
+void VIOImageView::Keyboard(View& view, unsigned char key, int x, int y, bool pressed) {
+  bool released = !pressed;
+  if (key == 'h' && released) {
+    ui.filter_highlights = !ui.filter_highlights;
+    ui.filter_highlights.Meta().gui_changed = true;
+  } else if (key == 'f' && released) {
+    ui.follow_highlight = !ui.follow_highlight;
+    ui.follow_highlight.Meta().gui_changed = true;
+  } else if (key == 'F' && released) {
+    ui.follow = !ui.follow;
+    ui.follow.Meta().gui_changed = true;
+  } else if (key == 'j' && released) {
+    ui.toggle_blocks();
+  } else if (key == 'i' && released) {
+    ui.show_ids = !ui.show_ids;
+    ui.show_ids.Meta().gui_changed = true;
+  } else if (key == 'g' && released) {
+    ui.show_grid = !ui.show_grid;
+    ui.show_grid.Meta().gui_changed = true;
+    ui.show_safe_radius = !ui.show_safe_radius;
+    ui.show_safe_radius.Meta().gui_changed = true;
+  } else if (key == 'c' && released) {
+    ui.clear_highlights();
+    selection.Clear();
+  } else {
+    ImageView::Keyboard(view, key, x, y, pressed);
+  }
 }
 
 }  // namespace basalt::vis

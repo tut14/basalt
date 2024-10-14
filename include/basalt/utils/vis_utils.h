@@ -45,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pangolin/var/var.h>
 #include <pangolin/var/varvaluegeneric.h>
 #include <basalt/utils/sophus_utils.hpp>
+#include <string>
 #include <tuple>
 
 namespace pangolin {
@@ -59,10 +60,12 @@ const uint8_t cam_color[3]{250, 0, 125};
 const uint8_t state_color[3]{250, 0, 26};
 const uint8_t pose_color[3]{0, 50, 255};
 const uint8_t gt_color[3]{0, 171, 47};
-const float MIN_DEPTH_COLOR[3]{0.27, 0.79, 1};      // blue
-const float MAX_DEPTH_COLOR[3]{1, 0.1, 0.42};       // pink
-const uint8_t MIN_DEPTH_COLOR_UB[3]{69, 201, 255};  // blue
-const uint8_t MAX_DEPTH_COLOR_UB[3]{255, 26, 107};  // pink
+constexpr float MIN_DEPTH_COLOR[3]{0.27, 0.79, 1};      // blue
+constexpr float MAX_DEPTH_COLOR[3]{1, 0.1, 0.42};       // pink
+constexpr uint8_t MIN_DEPTH_COLOR_UB[3]{69, 201, 255};  // blue
+constexpr uint8_t MAX_DEPTH_COLOR_UB[3]{255, 26, 107};  // pink
+
+const float HIGHLIGHT_RADIUS = 20;  // Radius of the circle around the highlighted point
 
 inline void render_camera(const Eigen::Matrix4d& T_w_c, float lineWidth, const uint8_t* color, float sizeFactor,
                           bool show_ids = false, size_t frame_idx = 0, const uint8_t* idx_color = nullptr,
@@ -166,10 +169,13 @@ using Eigen::Vector2f;
 using Eigen::Vector4d;
 using pangolin::ImageView;
 using pangolin::META_FLAG_READONLY;
+using pangolin::MouseButton;
 using pangolin::Var;
 using pangolin::View;
+using std::set;
 using std::shared_ptr;
 using std::string;
+using std::unordered_map;
 using std::vector;
 using Button = Var<std::function<void(void)>>;
 
@@ -178,20 +184,33 @@ extern pangolin::Params default_win_params;
 
 const uint8_t BLUE[4]{0x21, 0x96, 0xF3, 0xFF};
 const uint8_t GREEN[4]{0x4C, 0xAF, 0x50, 0xFF};
+const uint8_t LGREEN[4]{0x76, 0xFF, 0x03, 0xFF};
 const uint8_t RED[4]{0xF4, 0x43, 0x36, 0xFF};
 const uint8_t YELLOW[4]{0xFF, 0xFF, 0x00, 0xFF};
 
 struct SelectionNode {
   bool is_range;
-  size_t a;
-  size_t b;
+  KeypointId a;
+  KeypointId b;
 
-  bool contains(size_t n) const { return is_range ? a <= n && n <= b : n == a; }
+  SelectionNode(bool is_range, KeypointId a, KeypointId b) : is_range(is_range), a(a), b(b) {}
+  bool contains(KeypointId n) const { return is_range ? a <= n && n <= b : n == a; }
 };
 using Selection = std::vector<SelectionNode>;
 
 //! Parse a set of numbers described in @p str. Example inputs: "1,3,5-10", "1000-2000,3,5-7"
 Selection parse_selection(const std::string& str);
+
+//! The reverse of parse_selection
+string selection_to_string(const Selection& selection);
+
+//! Return a new selection without @p kpids
+Selection remove_from_selection(const Selection& selection, const std::set<KeypointId>& kpids);
+
+//! Return the subset of kps that are in selection
+Keypoints filter_kps_by_selection(const Selection& selection, const Keypoints& kps);
+
+void get_rect_containing_kps(const Keypoints& kpids, float& l, float& r, float& t, float& b);
 
 bool is_selected(const Selection& selection, size_t n);
 
@@ -202,6 +221,7 @@ struct VIOUIBase {
   View* img_view_display;
   View* plot_display;
   View* blocks_display;
+  shared_ptr<ImageView> blocks_view;
   vector<shared_ptr<ImageView>> img_view;
   bool show_blocks = false;
   Selection highlights{};
@@ -209,23 +229,26 @@ struct VIOUIBase {
   Calibration<double> calib;
   OpticalFlowBase::Ptr opt_flow;
   VioEstimatorBase::Ptr vio;
+  // TODO: Make vis_map into a queue that stores a range of frames, even in realtime mode
+  unordered_map<int64_t, VioVisualizationData::Ptr> vis_map;
 
   Var<int> show_frame{"ui.show_frame", 0, META_FLAG_READONLY};
 
   Var<bool> show_flow{"ui.show_flow", false, true};
-  Var<bool> show_responses{"ui.show_responses", false, true};
-  Var<bool> show_tracking_guess{"ui.show_tracking_guess", false, true};
-  Var<bool> show_matching_guess{"ui.show_matching_guess", false, true};
-  Var<bool> show_recall_guess{"ui.show_recall_guess", false, true};
+  bool show_responses = false;       // Var<bool> show_responses{"ui.show_responses", false, true};
+  bool show_tracking_guess = false;  // Var<bool> show_tracking_guess{"ui.show_tracking_guess", false, true};
+  bool show_matching_guess = false;  // Var<bool> show_matching_guess{"ui.show_matching_guess", false, true};
+  bool show_recall_guess = false;    // Var<bool> show_recall_guess{"ui.show_recall_guess", false, true};
   Var<bool> show_obs{"ui.show_obs", true, true};
   Var<bool> show_ids{"ui.show_ids", false, true};
-  Var<bool> show_depth{"ui.show_depth", false, true};
+  bool show_depth = false;  // Var<bool> show_depth{"ui.show_depth", false, true};
 
   Var<std::string> highlight_landmarks{"ui.Highlight", ""};
   Var<bool> filter_highlights{"ui.filter_highlights", false, true};
   Var<bool> show_highlights{"ui.show_highlights", false, true};
   Var<bool> follow_highlight{"ui.follow_highlight", false, true};
-  Button highlight_frame_btn{"ui.highlight_frame", [this]() { highligh_frame(); }};
+  Button highlight_frame_btn{"ui.highlight_frame", [this]() { highlight_frame(); }};
+  Button clear_highlights_btn{"ui.clear_highlights", [this]() { clear_highlights(); }};
 
   Button toggle_blocks_btn{"ui.toggle_blocks", [this]() { toggle_blocks(); }};
   Var<std::string> mat_name{"ui.mat_name", "Jr", META_FLAG_READONLY};
@@ -259,8 +282,12 @@ struct VIOUIBase {
 
   virtual VioVisualizationData::Ptr get_curr_vis_data() = 0;
 
+  KeypointId get_kpid_at(size_t cam_id, int x, int y, float radius = 10);
   bool is_highlighted(size_t lmid) const { return vis::is_selected(highlights, lmid); }
-  bool highligh_frame();
+  bool highlight_frame();
+  bool highlight_kps_in_rect(size_t cam_id, float l, float r, float t, float b);
+  bool remove_highlights(const std::set<KeypointId>& kpids);
+  void clear_highlights();
   bool toggle_blocks();
   bool take_ltkf();
   bool reset_state();
@@ -277,17 +304,23 @@ struct VIOUIBase {
   void do_show_safe_radius();
   void do_show_guesses(size_t cam_id);
   void do_show_obs(size_t cam_id);
-  void draw_blocks_overlay(pangolin::ImageView& blocks_view);
-  void draw_jacobian_overlay(pangolin::ImageView& blocks_view, const UIJacobians& uij);
-  void draw_hessian_overlay(pangolin::ImageView& blocks_view, const UIHessians& uih);
-  bool do_toggle_blocks(pangolin::View* blocks_display, pangolin::View* plot_display, pangolin::View* img_view_display,
-                        pangolin::Attach UI_WIDTH);
-  void do_show_blocks(const shared_ptr<ImageView>& blocks_view);
-  void do_show_hessian(const shared_ptr<ImageView>& blocks_view, UIHessians& uih);
-  void do_show_jacobian(const shared_ptr<ImageView>& blocks_view, UIJacobians& uij);
-  bool do_follow_highlight(bool smooth_zoom);
+  void draw_blocks_overlay();
+  void draw_jacobian_overlay(const UIJacobians& uij);
+  void draw_hessian_overlay(const UIHessians& uih);
+  bool do_toggle_blocks();
+  void do_show_blocks();
+  void do_show_hessian(UIHessians& uih);
+  void do_show_jacobian(UIJacobians& uij);
+  bool do_follow_highlight(bool follow, bool smooth_zoom);
 
   void do_render_camera(const Sophus::SE3d& T_w_c, size_t i, size_t ts, const uint8_t* color);
+};
+
+struct VIOImageView : ImageView {
+  VIOUIBase& ui;
+  VIOImageView(VIOUIBase& ui);
+  void Mouse(View& view, MouseButton button, int x_screen, int y_screen, bool pressed, int button_state) override;
+  void Keyboard(View& view, unsigned char key, int x, int y, bool pressed) override;
 };
 
 }  // namespace basalt::vis

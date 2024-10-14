@@ -80,16 +80,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace basalt::vit_implementation {
 
 using namespace Eigen;
+using pangolin::View;
 using std::cout;
 using std::make_shared;
 using std::shared_ptr;
 using std::string;
 using std::thread;
-using std::to_string;
 using std::vector;
 using vis::UIMAT;
 
-class vit_tracker_ui : vis::VIOUIBase {
+class vit_tracker_ui : public vis::VIOUIBase {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
  private:
@@ -200,11 +200,9 @@ class vit_tracker_ui : vis::VIOUIBase {
     plot_display->SetBounds(0.0, 0.4, UI_WIDTH, 1.0);
     plot_display->AddDisplay(*plotter);
 
-    auto blocks_view = std::make_shared<pangolin::ImageView>();
+    blocks_view = std::make_shared<pangolin::ImageView>();
     blocks_view->UseNN() = true;  // Disable antialiasing, can be toggled with N key
-    blocks_view->extern_draw_function = [this](pangolin::View &v) {
-      draw_blocks_overlay(dynamic_cast<pangolin::ImageView &>(v));
-    };
+    blocks_view->extern_draw_function = [this](View & /*v*/) { draw_blocks_overlay(); };
     const int DEFAULT_W = 480;
     blocks_display = &pangolin::CreateDisplay();
     blocks_display->SetBounds(0.0, 0.6, UI_WIDTH, pangolin::Attach::Pix(UI_WIDTH_PIX + DEFAULT_W));
@@ -214,14 +212,14 @@ class vit_tracker_ui : vis::VIOUIBase {
     pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, UI_WIDTH);
 
     while (img_view.size() < calib.intrinsics.size()) {
-      std::shared_ptr<pangolin::ImageView> iv(new pangolin::ImageView);
+      auto iv = make_shared<vis::VIOImageView>(*this);
       iv->UseNN() = true;  // Disable antialiasing (toggle it back with the N key)
 
       size_t idx = img_view.size();
       img_view.push_back(iv);
 
       img_view_display->AddDisplay(*iv);
-      iv->extern_draw_function = [idx, this](pangolin::View &v) {
+      iv->extern_draw_function = [idx, this](View &v) {
         draw_image_overlay(dynamic_cast<pangolin::ImageView &>(v), idx);
       };
     }
@@ -234,7 +232,7 @@ class vit_tracker_ui : vis::VIOUIBase {
         pangolin::ProjectionMatrix(640, 480, 400, 400, 320, 240, 0.001, 10000),
         pangolin::ModelViewLookAt(cam_p[0], cam_p[1], cam_p[2], 0, 0, 0, pangolin::AxisZ));
 
-    pangolin::View &display3D = pangolin::CreateDisplay();
+    View &display3D = pangolin::CreateDisplay();
     display3D.SetAspect(-640 / 480.0);
     display3D.SetBounds(0.4, 1.0, 0.4, 1.0);
     display3D.SetHandler(new pangolin::Handler3D(camera));
@@ -279,24 +277,26 @@ class vit_tracker_ui : vis::VIOUIBase {
                                        img_data[cam_id].img->pitch, fmt);
           }
         }
-        if (follow_highlight) do_follow_highlight(false);
+        if (follow_highlight) do_follow_highlight(true, false);
       }
 
       if (highlight_landmarks.GuiChanged() || filter_highlights.GuiChanged() || show_highlights.GuiChanged()) {
         highlights = vis::parse_selection(highlight_landmarks);
         filter_highlights = filter_highlights && !highlights.empty();
-        if (show_blocks) do_show_blocks(blocks_view);
+        if (show_blocks) do_show_blocks();
       }
 
       if (mat_to_show.GuiChanged()) {
         mat_name = std::string(magic_enum::enum_name((UIMAT)mat_to_show.Get()));
-        if (show_blocks) do_show_blocks(blocks_view);
+        if (show_blocks) do_show_blocks();
       }
 
-      if (show_blocks) do_show_blocks(blocks_view);
+      if (show_blocks) do_show_blocks();
 
-      if (follow_highlight.GuiChanged())
-        follow_highlight = follow_highlight && highlights.size() == 1 && !highlights[0].is_range;
+      if (follow_highlight.GuiChanged()) {
+        follow_highlight = follow_highlight && !highlights.empty();
+        do_follow_highlight(follow_highlight, true);
+      }
 
       draw_plots();
 
