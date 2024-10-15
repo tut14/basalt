@@ -1236,7 +1236,13 @@ void VIOImageView::Mouse(View& view, MouseButton button, int x_screen, int y_scr
 
 void VIOImageView::Keyboard(View& view, unsigned char key, int x, int y, bool pressed) {
   bool released = !pressed;
-  if (key == 'h' && released) {
+  if (key >= '1' && key <= '9' && released) {
+    size_t n = key - '1';
+    if (n < ui.menus.size()) {
+      *ui.menus.at(n) = !*ui.menus.at(n);
+      ui.menus.at(n)->Meta().gui_changed = true;
+    }
+  } else if (key == 'h' && released) {
     ui.filter_highlights = !ui.filter_highlights;
     ui.filter_highlights.Meta().gui_changed = true;
   } else if (key == 'f' && released) {

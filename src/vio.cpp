@@ -81,11 +81,13 @@ using namespace basalt::literals;
 using namespace basalt;
 using namespace Eigen;
 using pangolin::DataLog;
+using pangolin::META_FLAG_READONLY;
 using pangolin::Plotter;
 using pangolin::Var;
 using pangolin::View;
 using std::make_shared;
 using std::shared_ptr;
+using std::string;
 using std::thread;
 using vis::Button;
 using UIMAT = vis::UIMAT;
@@ -136,21 +138,21 @@ struct basalt_vio_ui : vis::VIOUIBase {
   thread state_consumer_thread;
   thread queues_printer_thread;
 
-  Var<bool> show_gt{"ui.show_gt", true, true};
+  Var<bool> trajectory_menu{"ui.Trajectory Menu", false, true};
+  Var<string> trajectory_menu_title{"trajectory_menu.MENU", "Trajectory Menu", META_FLAG_READONLY};
+  Var<bool> show_gt{"trajectory_menu.show_gt", true, true};
+  Button align_se3_btn{"trajectory_menu.align_se3", [this]() { alignButton(); }};
+  Var<bool> euroc_fmt{"trajectory_menu.euroc_fmt", true, true};
+  Var<bool> tum_rgbd_fmt{"trajectory_menu.tum_rgbd_fmt", false, true};
+  Var<bool> kitti_fmt{"trajectory_menu.kitti_fmt", false, true};
+  Var<bool> save_groundtruth{"trajectory_menu.save_groundtruth", false, true};
+  Button save_traj_btn{"trajectory_menu.save_traj", [this]() { saveTrajectoryButton(); }};
 
   Button next_step_btn{"ui.next_step", [this]() { next_step(); }};
   Button prev_step_btn{"ui.prev_step", [this]() { prev_step(); }};
 
   Var<bool> continue_btn{"ui.continue", false, true};
   Var<bool> continue_fast{"ui.continue_fast", true, true};
-
-  Button align_se3_btn{"ui.align_se3", [this]() { alignButton(); }};
-
-  Var<bool> euroc_fmt{"ui.euroc_fmt", true, true};
-  Var<bool> tum_rgbd_fmt{"ui.tum_rgbd_fmt", false, true};
-  Var<bool> kitti_fmt{"ui.kitti_fmt", false, true};
-  Var<bool> save_groundtruth{"ui.save_groundtruth", false, true};
-  Button save_traj_btn{"ui.save_traj", [this]() { saveTrajectoryButton(); }};
 
   struct OfflineVIOImageView : vis::VIOImageView {
     basalt_vio_ui& vio_ui;
@@ -398,6 +400,12 @@ struct basalt_vio_ui : vis::VIOUIBase {
       blocks_display->Show(show_blocks);
 
       pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, UI_WIDTH);
+      menus.push_back(&trajectory_menu);
+      menus_str.emplace_back("trajectory_menu");
+      for (size_t i = 0; i < menus.size(); i++) {
+        pangolin::CreatePanel(menus_str[i]).SetBounds(0.0, 0.4, 0.0, UI_WIDTH);
+        pangolin::Display(menus_str[i]).Show(*menus[i]);
+      }
 
       while (img_view.size() < calib.intrinsics.size()) {
         auto iv = make_shared<OfflineVIOImageView>(*this);
@@ -522,6 +530,20 @@ struct basalt_vio_ui : vis::VIOUIBase {
           kitti_fmt = true;
           euroc_fmt = false;
           tum_rgbd_fmt = false;
+        }
+
+        Var<bool>* selected_menu = nullptr;
+        for (Var<bool>* menu : menus) {
+          if (menu->GuiChanged()) {
+            selected_menu = menu;
+            break;
+          }
+        }
+        if (selected_menu != nullptr) {
+          for (size_t i = 0; i < menus.size(); i++) {
+            *menus[i] = menus[i] != selected_menu ? false : *selected_menu;
+            pangolin::Display(menus_str[i]).Show(*menus[i]);
+          }
         }
 
         //      if (record) {

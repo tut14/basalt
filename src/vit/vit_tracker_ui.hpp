@@ -80,6 +80,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace basalt::vit_implementation {
 
 using namespace Eigen;
+using pangolin::Var;
 using pangolin::View;
 using std::cout;
 using std::make_shared;
@@ -210,6 +211,10 @@ class vit_tracker_ui : public vis::VIOUIBase {
     blocks_display->Show(show_blocks);
 
     pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, UI_WIDTH);
+    for (size_t i = 0; i < menus.size(); i++) {
+      pangolin::CreatePanel(menus_str[i]).SetBounds(0.0, 0.4, 0.0, UI_WIDTH);
+      pangolin::Display(menus_str[i]).Show(*menus[i]);
+    }
 
     while (img_view.size() < calib.intrinsics.size()) {
       auto iv = make_shared<vis::VIOImageView>(*this);
@@ -296,6 +301,20 @@ class vit_tracker_ui : public vis::VIOUIBase {
       if (follow_highlight.GuiChanged()) {
         follow_highlight = follow_highlight && !highlights.empty();
         do_follow_highlight(follow_highlight, true);
+      }
+
+      Var<bool> *selected_menu = nullptr;
+      for (Var<bool> *menu : menus) {
+        if (menu->GuiChanged()) {
+          selected_menu = menu;
+          break;
+        }
+      }
+      if (selected_menu != nullptr) {
+        for (size_t i = 0; i < menus.size(); i++) {
+          *menus[i] = menus[i] != selected_menu ? false : *selected_menu;
+          pangolin::Display(menus_str[i]).Show(*menus[i]);
+        }
       }
 
       draw_plots();

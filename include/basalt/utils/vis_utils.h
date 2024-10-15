@@ -234,51 +234,68 @@ struct VIOUIBase {
 
   Var<int> show_frame{"ui.show_frame", 0, META_FLAG_READONLY};
 
-  Var<bool> show_flow{"ui.show_flow", false, true};
-  bool show_responses = false;       // Var<bool> show_responses{"ui.show_responses", false, true};
-  bool show_tracking_guess = false;  // Var<bool> show_tracking_guess{"ui.show_tracking_guess", false, true};
-  bool show_matching_guess = false;  // Var<bool> show_matching_guess{"ui.show_matching_guess", false, true};
-  bool show_recall_guess = false;    // Var<bool> show_recall_guess{"ui.show_recall_guess", false, true};
-  Var<bool> show_obs{"ui.show_obs", true, true};
-  Var<bool> show_ids{"ui.show_ids", false, true};
-  bool show_depth = false;  // Var<bool> show_depth{"ui.show_depth", false, true};
+  Var<bool> features_menu{"ui.Features Menu", false, true};
+  Var<string> features_menu_title{"features_menu.MENU", "Features Menu", META_FLAG_READONLY};
+  Var<bool> show_ids{"features_menu.show_ids", false, true};
+  Var<bool> show_flow{"features_menu.show_flow", false, true};
+  Var<bool> show_responses{"features_menu.show_responses", false, true};
+  Var<bool> show_tracking_guess{"features_menu.show_tracking_guess", false, true};
+  Var<bool> show_matching_guess{"features_menu.show_matching_guess", false, true};
+  Var<bool> show_recall_guess{"features_menu.show_recall_guess", false, true};
+  Var<bool> show_obs{"features_menu.show_obs", true, true};
+  Var<bool> show_depth{"features_menu.show_depth", false, true};
 
-  Var<std::string> highlight_landmarks{"ui.Highlight", ""};
-  Var<bool> filter_highlights{"ui.filter_highlights", false, true};
-  Var<bool> show_highlights{"ui.show_highlights", false, true};
-  Var<bool> follow_highlight{"ui.follow_highlight", false, true};
-  Button highlight_frame_btn{"ui.highlight_frame", [this]() { highlight_frame(); }};
-  Button clear_highlights_btn{"ui.clear_highlights", [this]() { clear_highlights(); }};
+  Var<bool> highlights_menu{"ui.Highlights Menu", false, true};
+  Var<string> highlights_menu_title{"highlights_menu.MENU", "Highlights Menu", META_FLAG_READONLY};
+  Var<string> highlight_landmarks{"highlights_menu.Highlight", ""};
+  Var<bool> filter_highlights{"highlights_menu.filter_highlights", false, true};
+  Var<bool> show_highlights{"highlights_menu.show_highlights", false, true};
+  Var<bool> follow_highlight{"highlights_menu.follow_highlight", false, true};
+  Button highlight_frame_btn{"highlights_menu.highlight_frame", [this]() { highlight_frame(); }};
+  Button clear_highlights_btn{"highlights_menu.clear_highlights", [this]() { clear_highlights(); }};
 
-  Button toggle_blocks_btn{"ui.toggle_blocks", [this]() { toggle_blocks(); }};
-  Var<std::string> mat_name{"ui.mat_name", "Jr", META_FLAG_READONLY};
-  Var<int> mat_to_show{"ui.mat_to_show", (int)UIMAT::JR, (int)UIMAT::JR, (int)UIMAT::COUNT - 1};
+  Var<bool> blocks_menu{"ui.Block Menu", false, true};
+  Var<string> blocks_menu_title{"blocks_menu.MENU", "Block Menu", META_FLAG_READONLY};
+  Button toggle_blocks_btn{"blocks_menu.toggle_blocks", [this]() { toggle_blocks(); }};
+  Var<string> mat_name{"blocks_menu.mat_name", "Jr", META_FLAG_READONLY};
+  Var<int> mat_to_show{"blocks_menu.mat_to_show", (int)UIMAT::JR, (int)UIMAT::JR, (int)UIMAT::COUNT - 1};
+  Var<bool> show_block_vals{"blocks_menu.show_block_vals", false, true};
 
-  Var<bool> show_block_vals{"ui.show_block_vals", false, true};
+  Var<bool> keyframe_menu{"ui.Keyframe Menu", false, true};
+  Var<string> keyframe_menu_title{"keyframe_menu.MENU", "Keyframe Menu", META_FLAG_READONLY};
+  Button take_ltkf_btn{"keyframe_menu.Take Keyframe", [this]() { take_ltkf(); }};
 
-  Button take_ltkf_btn{"ui.Take Keyframe", [this]() { take_ltkf(); }};
-  Button reset_state_btn{"ui.Reset State", [this]() { reset_state(); }};
+  Var<bool> image_menu{"ui.Image Menu", false, true};
+  Var<string> image_menu_title{"image_menu.MENU", "Image Menu", META_FLAG_READONLY};
+  Var<bool> show_grid{"image_menu.show_grid", false, true};
+  Var<bool> show_safe_radius{"image_menu.show_safe_radius", false, true};
+  Var<bool> show_cam0_proj{"image_menu.show_cam0_proj", false, true};
+  Var<bool> show_masks{"image_menu.show_masks", false, true};
 
-  Var<bool> show_grid{"ui.show_grid", false, true};
-  Var<bool> show_safe_radius{"ui.show_safe_radius", false, true};
-  Var<bool> show_cam0_proj{"ui.show_cam0_proj", false, true};
-  Var<bool> show_masks{"ui.show_masks", false, true};
+  Var<bool> guesses_menu{"ui.Guesses Menu", false, true};
+  Var<string> guesses_menu_title{"guesses_menu.MENU", "Guesses Menu", META_FLAG_READONLY};
+  Var<bool> show_guesses{"guesses_menu.Show matching guesses", false, true};
+  Var<bool> show_same_pixel_guess{"guesses_menu.SAME_PIXEL", true, true};
+  Var<bool> show_reproj_avg_depth_guess{"guesses_menu.REPROJ_AVG_DEPTH", true, true};
+  Var<bool> show_reproj_fix_depth_guess{"guesses_menu.REPROJ_FIX_DEPTH", true, true};
+  Var<double> fixed_depth{"guesses_menu.FIX_DEPTH", 2, 0, 3};
+  Var<bool> show_active_guess{"guesses_menu.Active Guess", true, true};
+  Var<double> depth_guess{"guesses_menu.depth_guess", 2, META_FLAG_READONLY};
 
-  Var<bool> show_guesses{"ui.Show matching guesses", false, true};
-  Var<bool> show_same_pixel_guess{"ui.SAME_PIXEL", true, true};
-  Var<bool> show_reproj_avg_depth_guess{"ui.REPROJ_AVG_DEPTH", true, true};
-  Var<bool> show_reproj_fix_depth_guess{"ui.REPROJ_FIX_DEPTH", true, true};
-  Var<double> fixed_depth{"ui.FIX_DEPTH", 2, 0, 3};
-  Var<bool> show_active_guess{"ui.Active Guess", true, true};
-
-  Var<double> depth_guess{"ui.depth_guess", 2, META_FLAG_READONLY};
-
-  Var<bool> show_est_pos{"ui.show_est_pos", true, true};
-  Var<bool> show_est_vel{"ui.show_est_vel", false, true};
-  Var<bool> show_est_bg{"ui.show_est_bg", false, true};
-  Var<bool> show_est_ba{"ui.show_est_ba", false, true};
+  Var<bool> curves_menu{"ui.Curves Menu", false, true};
+  Var<string> curves_menu_title{"curves_menu.MENU", "Curves Menu", META_FLAG_READONLY};
+  Var<bool> show_est_pos{"curves_menu.show_est_pos", true, true};
+  Var<bool> show_est_vel{"curves_menu.show_est_vel", false, true};
+  Var<bool> show_est_bg{"curves_menu.show_est_bg", false, true};
+  Var<bool> show_est_ba{"curves_menu.show_est_ba", false, true};
 
   Var<bool> follow{"ui.follow", true, true};
+  Button reset_state_btn{"ui.Reset State", [this]() { reset_state(); }};
+
+  vector<Var<bool>*> menus{&features_menu, &highlights_menu, &blocks_menu, &keyframe_menu,
+                           &image_menu,    &guesses_menu,    &curves_menu};
+  vector<string> menus_str{"features_menu", "highlights_menu", "blocks_menu", "keyframe_menu",
+                           "image_menu",    "guesses_menu",    "curves_menu", "trajectory_menu"};
 
   virtual VioVisualizationData::Ptr get_curr_vis_data() = 0;
 

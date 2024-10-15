@@ -9,3 +9,4 @@ scripts/eval_full/eval_*
 stats_*.*json
 __pycache__
 CMakeUserPresets.json
+clangd
