@@ -16,8 +16,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
 	DISTRO=$( awk -F= '/^ID/{print $2}' /etc/os-release )
 	if [ "$DISTRO" == "fedora" ]; then
-		sudo dnf install -y gcc g++ cmake ninja-build git tbb-devel eigen3-devel glew-devel ccache libjpeg-turbo-devel libpng-devel lz4-devel bzip2-devel boost-regex boost-filesystem boost-date-time boost-program-options gtest-devel opencv-devel
+		sudo dnf install -y gcc g++ cmake ninja-build mold git tbb-devel eigen3-devel glew-devel ccache libjpeg-turbo-devel libpng-devel lz4-devel bzip2-devel boost-regex boost-filesystem boost-date-time boost-program-options gtest-devel opencv-devel
 	else
-		sudo apt-get install -y gcc g++ cmake ninja-build git libtbb-dev libeigen3-dev libglew-dev ccache libjpeg-dev libpng-dev liblz4-dev libbz2-dev libboost-regex-dev libboost-filesystem-dev libboost-date-time-dev libboost-program-options-dev libgtest-dev libopencv-dev libfmt-dev libc++-14-dev libc++1-14 libc++abi1-14 libunwind-14 libunwind-14-dev libwayland-bin libepoxy-dev
+		sudo apt-get install -y gcc g++ cmake ninja-build mold git libtbb-dev libeigen3-dev libglew-dev ccache libjpeg-dev libpng-dev liblz4-dev libbz2-dev libboost-regex-dev libboost-filesystem-dev libboost-date-time-dev libboost-program-options-dev libgtest-dev libopencv-dev libfmt-dev libc++-14-dev libc++1-14 libc++abi1-14 libunwind-14 libunwind-14-dev libwayland-bin libepoxy-dev
 	fi
 fi

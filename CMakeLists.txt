@@ -5,6 +5,16 @@ project(basalt)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/" ${CMAKE_MODULE_PATH})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Try to use mold linker if found
+find_program(MOLD_PROGRAM mold)
+if (MOLD_PROGRAM)
+    message(STATUS "Mold linker found: ${MOLD_PROGRAM}")
+    set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=mold")
+    set(CMAKE_SHARED_LINKER_FLAGS "-fuse-ld=mold")
+else()
+    message(STATUS "Mold linker not found. Using default linker.")
+endif()
+
 if(NOT EIGEN_ROOT)
   set(EIGEN_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/basalt-headers/thirdparty/eigen")
 endif()
