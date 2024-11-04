@@ -59,15 +59,15 @@ CamCalib::CamCalib(const std::string &dataset_path, const std::string &dataset_t
       cam_types(cam_types),
       show_gui(show_gui),
       show_frame("ui.show_frame", 0, 0, 1500),
-      show_corners("ui.show_corners", true, false, true),
-      show_corners_rejected("ui.show_corners_rejected", false, false, true),
-      show_init_reproj("ui.show_init_reproj", false, false, true),
-      show_opt("ui.show_opt", true, false, true),
-      show_vign("ui.show_vign", false, false, true),
-      show_ids("ui.show_ids", false, false, true),
+      show_corners("ui.show_corners", true, true),
+      show_corners_rejected("ui.show_corners_rejected", false, true),
+      show_init_reproj("ui.show_init_reproj", false, true),
+      show_opt("ui.show_opt", true, true),
+      show_vign("ui.show_vign", false, true),
+      show_ids("ui.show_ids", false, true),
       huber_thresh("ui.huber_thresh", 4.0, 0.1, 10.0),
-      opt_intr("ui.opt_intr", true, false, true),
-      opt_until_convg("ui.opt_until_converge", false, false, true),
+      opt_intr("ui.opt_intr", true, true),
+      opt_until_convg("ui.opt_until_converge", false, true),
       stop_thresh("ui.stop_thresh", 1e-8, 1e-10, 0.01, true) {
   if (show_gui) initGui();
 
