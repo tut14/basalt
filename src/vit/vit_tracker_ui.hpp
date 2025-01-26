@@ -197,6 +197,9 @@ class vit_tracker_ui : public vis::VIOUIBase {
     img_view_display->SetLayout(pangolin::LayoutEqual);
 
     plotter = std::make_shared<pangolin::Plotter>(&imu_data_log, 0.0, 100, -10.0, 10.0, 0.01, 0.01);
+    plotter->SetBackgroundColour(vis::C_BLUEGREY_DARK());
+    plotter->SetAxisColour(vis::C_BLUEGREY_LIGHT());
+    plotter->SetTickColour(vis::C_BLUEGREY());
     plot_display = &pangolin::CreateDisplay();
     plot_display->SetBounds(0.0, 0.4, UI_WIDTH, 1.0);
     plot_display->AddDisplay(*plotter);

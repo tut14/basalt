@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Eigen/Dense>
 
 #include <pangolin/display/image_view.h>
+#include <pangolin/gl/colour.h>
 #include <pangolin/gl/gldraw.h>
 #include <pangolin/gl/glfont.h>
 
@@ -167,6 +168,7 @@ using Eigen::MatrixXf;
 using Eigen::Vector2d;
 using Eigen::Vector2f;
 using Eigen::Vector4d;
+using pangolin::Colour;
 using pangolin::ImageView;
 using pangolin::META_FLAG_READONLY;
 using pangolin::MouseButton;
@@ -187,6 +189,27 @@ const uint8_t GREEN[4]{0x4C, 0xAF, 0x50, 0xFF};
 const uint8_t LGREEN[4]{0x76, 0xFF, 0x03, 0xFF};
 const uint8_t RED[4]{0xF4, 0x43, 0x36, 0xFF};
 const uint8_t YELLOW[4]{0xFF, 0xFF, 0x00, 0xFF};
+
+inline Colour C_BLUEGREY() { return {69 / 255.0, 90 / 255.0, 100 / 255.0}; }
+inline Colour C_RED() { return {244 / 255.0, 67 / 255.0, 54 / 255.0}; }
+inline Colour C_PINK() { return {233 / 255.0, 30 / 255.0, 99 / 255.0}; }
+inline Colour C_BLUE() { return {33 / 255.0, 150 / 255.0, 243 / 255.0}; }
+inline Colour C_GREEN() { return {76 / 255.0, 175 / 255.0, 80 / 255.0}; }
+inline Colour C_YELLOW() { return {255 / 255.0, 152 / 255.0, 0 / 255.0}; }
+inline Colour C_AMBER() { return {255 / 255.0, 193 / 255.0, 7 / 255.0}; }
+
+inline Colour C_BLUEGREY_DARK() { return {38 / 255.0, 50 / 255.0, 56 / 255.0}; }
+inline Colour C_RED_DARK() { return {183 / 255.0, 28 / 255.0, 28 / 255.0}; }
+inline Colour C_PINK_DARK() { return {136 / 255.0, 14 / 255.0, 79 / 255.0}; }
+inline Colour C_BLUE_DARK() { return {13 / 255.0, 71 / 255.0, 161 / 255.0}; }
+inline Colour C_GREEN_DARK() { return {27 / 255.0, 94 / 255.0, 32 / 255.0}; }
+inline Colour C_YELLOW_DARK() { return {245 / 255.0, 127 / 255.0, 23 / 255.0}; }
+inline Colour C_AMBER_DARK() { return {255 / 255.0, 111 / 255.0, 0 / 255.0}; }
+
+inline Colour C_BLUEGREY_LIGHT() { return {236 / 255.0, 239 / 255.0, 241 / 255.0}; }
+inline Colour C_RED_LIGHT() { return {255 / 255.0, 235 / 255.0, 238 / 255.0}; }
+inline Colour C_BLUE_LIGHT() { return {227 / 255.0, 242 / 255.0, 253 / 255.0}; }
+inline Colour C_GREEN_LIGHT() { return {232 / 255.0, 245 / 255.0, 233 / 255.0}; }
 
 struct SelectionNode {
   bool is_range;

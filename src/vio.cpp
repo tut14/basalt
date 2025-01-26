@@ -148,6 +148,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
   Var<bool> save_groundtruth{"trajectory_menu.save_groundtruth", false, true};
   Button save_traj_btn{"trajectory_menu.save_traj", [this]() { saveTrajectoryButton(); }};
 
+  Button compute_frames_ate_btn{"curves_menu.compute_frames_ate", [this]() { compute_frames_ate(); }};
+  Var<bool> show_frames_ate{"curves_menu.show_frames_ate", false, true};
+
   Button next_step_btn{"ui.next_step", [this]() { next_step(); }};
   Button prev_step_btn{"ui.prev_step", [this]() { prev_step(); }};
 
@@ -386,6 +389,9 @@ struct basalt_vio_ui : vis::VIOUIBase {
       img_view_display->SetLayout(pangolin::LayoutEqual);
 
       plotter = make_shared<Plotter>(&imu_data_log, 0.0, 100, -10.0, 10.0, 0.01, 0.01);
+      plotter->SetBackgroundColour(vis::C_BLUEGREY_DARK());
+      plotter->SetAxisColour(vis::C_BLUEGREY_LIGHT());
+      plotter->SetTickColour(vis::C_BLUEGREY());
       plot_display = &pangolin::CreateDisplay();
       plot_display->SetBounds(0.0, 0.4, UI_WIDTH, 1.0);
       plot_display->AddDisplay(*plotter);
@@ -492,7 +498,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
         }
 
         if (show_est_vel.GuiChanged() || show_est_pos.GuiChanged() || show_est_ba.GuiChanged() ||
-            show_est_bg.GuiChanged()) {
+            show_est_bg.GuiChanged() || show_frames_ate.GuiChanged()) {
           draw_plots();
         }
 
@@ -875,38 +881,74 @@ struct basalt_vio_ui : vis::VIOUIBase {
     plotter->ClearMarkers();
 
     if (show_est_pos) {
-      plotter->AddSeries("$0", "$4", pangolin::DrawingModeLine, pangolin::Colour::Red(), "position x", &vio_data_log);
-      plotter->AddSeries("$0", "$5", pangolin::DrawingModeLine, pangolin::Colour::Green(), "position y", &vio_data_log);
-      plotter->AddSeries("$0", "$6", pangolin::DrawingModeLine, pangolin::Colour::Blue(), "position z", &vio_data_log);
+      plotter->AddSeries("$0", "$4", pangolin::DrawingModeLine, vis::C_RED(), "position x", &vio_data_log);
+      plotter->AddSeries("$0", "$5", pangolin::DrawingModeLine, vis::C_GREEN(), "position y", &vio_data_log);
+      plotter->AddSeries("$0", "$6", pangolin::DrawingModeLine, vis::C_BLUE(), "position z", &vio_data_log);
     }
 
     if (show_est_vel) {
-      plotter->AddSeries("$0", "$1", pangolin::DrawingModeLine, pangolin::Colour::Red(), "velocity x", &vio_data_log);
-      plotter->AddSeries("$0", "$2", pangolin::DrawingModeLine, pangolin::Colour::Green(), "velocity y", &vio_data_log);
-      plotter->AddSeries("$0", "$3", pangolin::DrawingModeLine, pangolin::Colour::Blue(), "velocity z", &vio_data_log);
+      plotter->AddSeries("$0", "$1", pangolin::DrawingModeLine, vis::C_RED_DARK(), "velocity x", &vio_data_log);
+      plotter->AddSeries("$0", "$2", pangolin::DrawingModeLine, vis::C_GREEN_DARK(), "velocity y", &vio_data_log);
+      plotter->AddSeries("$0", "$3", pangolin::DrawingModeLine, vis::C_BLUE_DARK(), "velocity z", &vio_data_log);
     }
 
     if (show_est_bg) {
-      plotter->AddSeries("$0", "$7", pangolin::DrawingModeLine, pangolin::Colour::Red(), "gyro bias x", &vio_data_log);
-      plotter->AddSeries("$0", "$8", pangolin::DrawingModeLine, pangolin::Colour::Green(), "gyro bias y",
-                         &vio_data_log);
-      plotter->AddSeries("$0", "$9", pangolin::DrawingModeLine, pangolin::Colour::Blue(), "gyro bias z", &vio_data_log);
+      plotter->AddSeries("$0", "$7", pangolin::DrawingModeLine, vis::C_RED(), "gyro bias x", &vio_data_log);
+      plotter->AddSeries("$0", "$8", pangolin::DrawingModeLine, vis::C_GREEN(), "gyro bias y", &vio_data_log);
+      plotter->AddSeries("$0", "$9", pangolin::DrawingModeLine, vis::C_BLUE(), "gyro bias z", &vio_data_log);
     }
 
     if (show_est_ba) {
-      plotter->AddSeries("$0", "$10", pangolin::DrawingModeLine, pangolin::Colour::Red(), "accel bias x",
-                         &vio_data_log);
-      plotter->AddSeries("$0", "$11", pangolin::DrawingModeLine, pangolin::Colour::Green(), "accel bias y",
-                         &vio_data_log);
-      plotter->AddSeries("$0", "$12", pangolin::DrawingModeLine, pangolin::Colour::Blue(), "accel bias z",
-                         &vio_data_log);
+      plotter->AddSeries("$0", "$10", pangolin::DrawingModeLine, vis::C_RED_DARK(), "accel bias x", &vio_data_log);
+      plotter->AddSeries("$0", "$11", pangolin::DrawingModeLine, vis::C_GREEN_DARK(), "accel bias y", &vio_data_log);
+      plotter->AddSeries("$0", "$12", pangolin::DrawingModeLine, vis::C_BLUE_DARK(), "accel bias z", &vio_data_log);
     }
 
-    double t = vio_dataset->get_image_timestamps()[show_frame] * 1e-9;
+    if (show_frames_ate) {
+      plotter->AddSeries("$0", "$1", pangolin::DrawingModeLine, vis::C_AMBER(), "ATE [cm]", &error_data_log);
+      plotter->AddSeries("$0", "$2", pangolin::DrawingModeLine, vis::C_PINK(), "ATE diffs [mm]", &error_data_log);
+    }
+
+    double t = (vio_dataset->get_image_timestamps()[show_frame] - start_t_ns) * 1e-9;
     plotter->AddMarker(pangolin::Marker::Vertical, t, pangolin::Marker::Equal, pangolin::Colour::White());
   }
 
   void alignButton() { basalt::alignSVD(vio_t_ns, vio_t_w_i, gt_t_ns, gt_t_w_i); }
+
+  void compute_frames_ate() {
+    Eigen::Matrix<int64_t, Eigen::Dynamic, 1> ts{};
+    Eigen::Matrix<float, 3, Eigen::Dynamic> est_xyz{};
+    Eigen::Matrix<float, 3, Eigen::Dynamic> ref_xyz{};
+    int num_assocs = associate(vio_t_ns, vio_t_w_i, gt_t_ns, gt_t_w_i, ts, est_xyz, ref_xyz);
+
+    error_data_log.Clear();
+    constexpr int SAMPLE_POINTS = 10000;
+    int sample_points = std::min(SAMPLE_POINTS, num_assocs);
+    int step = num_assocs / sample_points;
+
+    float prev_err = 0;
+    for (int i = 1; i < num_assocs; i += step) {
+      Eigen::Matrix4f T_ref_est = get_alignment(est_xyz, ref_xyz, 0, i);
+      float error = compute_ate(est_xyz, ref_xyz, T_ref_est, 0, i);
+      error_data_log.Log({float((ts(i - 1) - start_t_ns) * 1e-9), error * 1e3f, (error - prev_err) * 1e6f});
+      prev_err = error;
+    }
+
+    // Ensure last frame error is computed and logged
+    int i = num_assocs;
+    Eigen::Matrix4f T_ref_est = get_alignment(est_xyz, ref_xyz, 0, i);
+    float error = compute_ate(est_xyz, ref_xyz, T_ref_est, 0, i);
+    error_data_log.Log({float((ts(i - 1) - start_t_ns) * 1e-9), error * 1e3f, (error - prev_err) * 1e6f});
+    prev_err = error;
+
+    std::cout << "[Final ATE]\n";
+    std::cout << "T_align\n" << T_ref_est.matrix() << std::endl;
+    std::cout << "error " << error << std::endl;
+    std::cout << "number of associations " << num_assocs << std::endl;
+
+    show_frames_ate = true;
+    show_frames_ate.Meta().gui_changed = true;
+  }
 
   void saveTrajectoryButton() {
     if (tum_rgbd_fmt) {
@@ -934,8 +976,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
         for (size_t i = 0; i < gt_t_ns.size(); i++) {
           const Eigen::Vector3d& pos = gt_t_w_i[i];
           os << std::scientific << std::setprecision(18) << gt_t_ns[i] * 1e-9 << " " << pos.x() << " " << pos.y() << " "
-             << pos.z() << " "
-             << "0 0 0 1" << std::endl;
+             << pos.z() << " 0 0 0 1" << std::endl;
         }
 
         os.close();

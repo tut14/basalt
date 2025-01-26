@@ -146,9 +146,7 @@ double alignSVD(const std::vector<int64_t>& filter_t_ns, const Eigen::aligned_ve
   Sophus::SE3d T_gt_est(rot_gt_est, trans);
   Sophus::SE3d T_est_gt = T_gt_est.inverse();
 
-  for (size_t i = 0; i < gt_t_w_i.size(); i++) {
-    gt_t_w_i[i] = T_est_gt * gt_t_w_i[i];
-  }
+  for (auto& i : gt_t_w_i) i = T_est_gt * i;
 
   double error = 0;
   for (size_t i = 0; i < est_associations.size(); i++) {
@@ -167,4 +165,113 @@ double alignSVD(const std::vector<int64_t>& filter_t_ns, const Eigen::aligned_ve
 
   return error;
 }
+
+int associate(const std::vector<int64_t>& filter_t_ns, const Eigen::aligned_vector<Eigen::Vector3d>& filter_t_w_i,
+              const std::vector<int64_t>& gt_t_ns, const Eigen::aligned_vector<Eigen::Vector3d>& gt_t_w_i,  //
+              Eigen::Matrix<int64_t, Eigen::Dynamic, 1>& out_ts, Eigen::Matrix<float, 3, Eigen::Dynamic>& out_est_xyz,
+              Eigen::Matrix<float, 3, Eigen::Dynamic>& out_ref_xyz) {
+  // BASALT_ASSERT(filter_t_ns.size() == filter_t_w_i.size() && gt_t_ns.size() == gt_t_ns.size());
+  int num_est = filter_t_ns.size();
+  int num_ref = gt_t_ns.size();
+  // BASALT_ASSERT(num_est < num_ref);
+
+  out_ref_xyz.resize(3, num_est);
+  out_est_xyz.resize(3, num_est);
+  out_ts.resize(num_est);
+
+  int num_assocs = 0;
+
+  Eigen::Index i = 0;  // est index
+  Eigen::Index j = 0;  // ref index
+
+  // Advance est to first ref or after
+  while (filter_t_ns[i] < gt_t_ns[0] && i < num_est) i++;
+
+  for (; i < num_est; i++) {
+    int64_t t_ns = filter_t_ns[i];
+
+    // j is -1
+    for (; j < num_ref; j++) {
+      if (gt_t_ns[j] > t_ns) break;
+    }
+    j--;  // j will never be -1 because i starts such that est(i) > ref(0)
+
+    if (j >= num_ref - 1) continue;
+
+    double dt_ns = t_ns - gt_t_ns[j];
+    double int_t_ns = gt_t_ns[j + 1] - gt_t_ns[j];
+    // BASALT_ASSERT(dt_ns >= 0 && int_t_ns > 0);
+
+    if (int_t_ns > 1.1e8) continue;  // Skip if >100ms
+
+    double ratio = dt_ns / int_t_ns;
+    // BASALT_ASSERT(ratio >= 0 && ratio < 1);
+
+    Eigen::Vector3f gt = (1 - ratio) * gt_t_w_i[j].cast<float>() + ratio * gt_t_w_i[j + 1].cast<float>();
+    out_ref_xyz.col(num_assocs) = gt;
+    out_est_xyz.col(num_assocs) = filter_t_w_i[i].cast<float>();
+    out_ts(num_assocs) = t_ns;
+    num_assocs++;
+  }
+
+  out_ref_xyz.conservativeResize(Eigen::NoChange, num_assocs);
+  out_est_xyz.conservativeResize(Eigen::NoChange, num_assocs);
+  out_ts.conservativeResize(num_assocs);
+  return num_assocs;
+}
+
+Eigen::Matrix4f get_alignment(const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& est_xyz,
+                              const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& ref_xyz,  //
+                              int i, int j) {
+  // BASALT_ASSERT(est_xyz.cols() == ref_xyz.cols());
+  // int pose_count = est_xyz.cols();
+  // BASALT_ASSERT(i < j && i >= 0 && i < pose_count && j >= 0 && j <= pose_count);
+
+  // Get block i-j without copy
+  auto estb_xyz = est_xyz.block(0, i, 3, j - i);
+  auto refb_xyz = ref_xyz.block(0, i, 3, j - i);
+
+  Eigen::Vector3f mean_est = estb_xyz.rowwise().mean();
+  Eigen::Vector3f mean_ref = refb_xyz.rowwise().mean();
+
+  Eigen::Matrix<float, 3, Eigen::Dynamic> c_est = estb_xyz.colwise() - mean_est;
+  Eigen::Matrix<float, 3, Eigen::Dynamic> c_ref = refb_xyz.colwise() - mean_ref;
+  Eigen::Matrix3f cov = c_ref * c_est.transpose();
+  Eigen::JacobiSVD<Eigen::Matrix3f> svd(cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+  Eigen::Matrix3f S;
+  S.setIdentity();
+
+  if (svd.matrixU().determinant() * svd.matrixV().determinant() < 0) S(2, 2) = -1;
+
+  Eigen::Matrix3f rot_gt_est = svd.matrixU() * S * svd.matrixV().transpose();
+  Eigen::Vector3f trans = mean_ref - rot_gt_est * mean_est;
+
+  Sophus::SE3f T_ref_est(rot_gt_est, trans);
+
+  return T_ref_est.matrix();
+}
+
+float compute_ate(const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& est_xyz,
+                  const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& ref_xyz,  //
+                  const Eigen::Ref<Eigen::Matrix4f>& T_ref_est_mat,                          //
+                  int i, int j) {
+  // BASALT_ASSERT(est_xyz.cols() == ref_xyz.cols());
+  int pose_count = est_xyz.cols();
+  // BASALT_ASSERT(i < j && i >= 0 && i < pose_count && j >= 0 && j <= pose_count);
+
+  Sophus::SE3f T_ref_est(T_ref_est_mat);
+
+  float rmse = 0;
+
+  for (Eigen::Index k = i; k < j; k++) {
+    Eigen::Vector3f res = T_ref_est * est_xyz.col(k) - ref_xyz.col(k);
+    rmse += res.transpose() * res;
+  }
+
+  rmse = std::sqrt(rmse / pose_count);
+
+  return rmse;
+}
+
 }  // namespace basalt

@@ -45,7 +45,7 @@ clangd-tidy-diff-files:
   script:
     - git fetch origin $CI_DEFAULT_BRANCH
     - apt-get update && apt-get install -y unzip python3.10-venv
-    - export CLANGD_URL=$(curl -s https://api.github.com/repos/clangd/clangd/releases/latest | grep "browser_download_url.*clangd-linux.*zip" | cut -d ":" -f 2,3 | tr -d \")
+    - export CLANGD_URL=$(curl -s https://api.github.com/repos/clangd/clangd/releases/latest | grep -oP "\"browser_download_url.*clangd-linux-(\d|\.)+\.zip\"" | cut -d ":" -f 2,3 | tr -d \")
     - echo $CLANGD_URL
     - curl -L --silent --show-error --fail $CLANGD_URL -o clangd-linux.zip
     - unzip -q clangd-linux.zip

@@ -86,7 +86,7 @@ class VioEstimatorBase {
  public:
   typedef std::shared_ptr<VioEstimatorBase> Ptr;
 
-  VioEstimatorBase() : out_state_queue(nullptr), out_marg_queue(nullptr), out_vis_queue(nullptr) {
+  VioEstimatorBase() {
     vision_data_queue.set_capacity(10);
     imu_data_queue.set_capacity(300);
     last_processed_t_ns = 0;
@@ -154,4 +154,18 @@ class VioEstimatorFactory {
 
 double alignSVD(const std::vector<int64_t>& filter_t_ns, const Eigen::aligned_vector<Eigen::Vector3d>& filter_t_w_i,
                 const std::vector<int64_t>& gt_t_ns, Eigen::aligned_vector<Eigen::Vector3d>& gt_t_w_i);
+
+int associate(const std::vector<int64_t>& filter_t_ns, const Eigen::aligned_vector<Eigen::Vector3d>& filter_t_w_i,
+              const std::vector<int64_t>& gt_t_ns, const Eigen::aligned_vector<Eigen::Vector3d>& gt_t_w_i,
+              Eigen::Matrix<int64_t, Eigen::Dynamic, 1>& out_ts, Eigen::Matrix<float, 3, Eigen::Dynamic>& out_est_xyz,
+              Eigen::Matrix<float, 3, Eigen::Dynamic>& out_ref_xyz);
+
+Eigen::Matrix4f get_alignment(const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& est_xyz,
+                              const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& ref_xyz,  //
+                              int i, int j);
+
+float compute_ate(const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& est_xyz,
+                  const Eigen::Ref<const Eigen::Matrix<float, 3, Eigen::Dynamic>>& ref_xyz,  //
+                  const Eigen::Ref<Eigen::Matrix4f>& T_ref_est_mat,                          //
+                  int i, int j);
 }  // namespace basalt
