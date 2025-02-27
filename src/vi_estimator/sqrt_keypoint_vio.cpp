@@ -145,12 +145,10 @@ bool SqrtKeypointVioEstimator<Scalar>::resetState(typename IntegratedImuMeasurem
   // drain_input_queues();
   frame_states.clear();
   frame_poses.clear();
-  frame_idx.clear();
   lmdb.clear();
 
   take_kf = true;
   frames_after_kf = 0;
-  frame_count = 0;
   kf_ids.clear();
   ltkfs.clear();
   imu_meas.clear();
@@ -350,6 +348,13 @@ void SqrtKeypointVioEstimator<Scalar_>::initialize(const Eigen::Vector3d& bg_, c
       bool success = measure(curr_frame, meas);
       if (!success) {
         schedule_reset = true;
+        if (out_state_queue) {  // If optimization fails, push an empty state to the output queue
+          auto data = std::make_shared<PoseVelBiasState<double>>();
+          data->t_ns = curr_frame->t_ns;
+          data->input_images = curr_frame->input_images;
+          data->input_images->addTime("pose_produced");
+          out_state_queue->push(data);
+        }
         continue;
       }
 
