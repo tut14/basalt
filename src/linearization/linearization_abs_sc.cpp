@@ -309,12 +309,12 @@ void LinearizationAbsSC<Scalar, POSE_SIZE>::get_dense_Q2Jp_Q2r_marg_prior(MatX& 
   estimator->computeDelta(marg_lin_data->order, delta);
 
   if (marg_scaling.rows() > 0) {
-    Q2Jp.template block(start_idx, 0, marg_rows, marg_cols) = marg_lin_data->H * marg_scaling.asDiagonal();
+    Q2Jp.template block<>(start_idx, 0, marg_rows, marg_cols) = marg_lin_data->H * marg_scaling.asDiagonal();
   } else {
-    Q2Jp.template block(start_idx, 0, marg_rows, marg_cols) = marg_lin_data->H;
+    Q2Jp.template block<>(start_idx, 0, marg_rows, marg_cols) = marg_lin_data->H;
   }
 
-  Q2r.template segment(start_idx, marg_rows) = marg_lin_data->H * delta + marg_lin_data->b;
+  Q2r.template segment<>(start_idx, marg_rows) = marg_lin_data->H * delta + marg_lin_data->b;
 }
 
 template <typename Scalar, int POSE_SIZE>

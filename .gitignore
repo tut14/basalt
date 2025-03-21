@@ -10,3 +10,4 @@ stats_*.*json
 __pycache__
 CMakeUserPresets.json
 clangd
+datasets

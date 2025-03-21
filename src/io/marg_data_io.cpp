@@ -141,7 +141,7 @@ void MargDataLoader::start(const std::string& path) {
     std::map<int64_t, std::string> filenames;
 
     for (auto& p : fs::directory_iterator(path)) {
-      std::string filename = p.path().filename();
+      std::string filename = p.path().filename().string();
       if (!std::isdigit(filename[0])) continue;
 
       size_t lastindex = filename.find_last_of(".");

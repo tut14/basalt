@@ -221,8 +221,9 @@ elseif(UNIX)
     message(WARNING "Detected Linux with unsupported compiler ${CMAKE_CXX_COMPILER_ID}")
   endif()
 
-else()
-  message(WARNING "Only Linux and macOS are currently supported")
+elseif(WIN32)
+  add_compile_options(-Wno-c++11-narrowing)
+  add_compile_options(-Wno-deprecated)
 endif()
 
 
@@ -293,7 +294,12 @@ if(NOT EIGEN3_INCLUDE_DIR MATCHES "^${EIGEN_ROOT}")
   message(WARNING "Found Eigen headers are outside of specified EIGEN_ROOT '${EIGEN_ROOT}'")
 endif()
 
-find_package(TBB REQUIRED)
+if (WIN32)
+  find_package(TBB CONFIG REQUIRED)
+else()
+  find_package(TBB REQUIRED)
+endif()
+
 message(STATUS "Found TBB ${TBB_VERSION_MAJOR}.${TBB_VERSION_MINOR} (interface version ${TBB_INTERFACE_VERSION}) headers in: ${TBB_INCLUDE_DIRS}")
 if (TBB_INTERFACE_VERSION LESS 11004)
   # enable global_control header for earlier TBB versions (Ubuntu 16.04, 18.04)

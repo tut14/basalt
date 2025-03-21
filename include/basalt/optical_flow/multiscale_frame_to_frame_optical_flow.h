@@ -370,7 +370,7 @@ class MultiscaleFrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Patter
         patch_valid &= trackPointAtLevel(pyr.lvl(level), p, transform_tmp);
       }
 
-      if (level == static_cast<ssize_t>(pyramid_level) + 1 && !patch_valid) {
+      if (level == int{pyramid_level} + 1 && !patch_valid) {
         return false;
       }
 
@@ -420,10 +420,10 @@ class MultiscaleFrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Patter
     return patch_valid;
   }
 
-  std::pair<Keypoints, KeypointLevels> addPointsForCamera(size_t cam_id, ssize_t level) {
+  std::pair<Keypoints, KeypointLevels> addPointsForCamera(size_t cam_id, int level) {
     Eigen::aligned_vector<Eigen::Vector2d> pts;  // Current points
     for (const auto& [kpid, affine] : transforms->keypoints.at(cam_id)) {
-      const ssize_t point_level = transforms->pyramid_levels.at(cam_id).at(kpid);
+      const size_t point_level = transforms->pyramid_levels.at(cam_id).at(kpid);
       if (point_level >= level - 1 && point_level <= level + 1) {  // Use the point on adjacent levels too
         const Scalar pt_scale = 1 << point_level;
         pts.emplace_back((affine.translation() / pt_scale).template cast<double>());

@@ -33,14 +33,14 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <cfloat>
+
 #include <basalt/optical_flow/optical_flow.h>
 #include <basalt/utils/vis_utils.h>
 #include <pangolin/gl/glfont.h>
 #include <pangolin/var/var.h>
 
-namespace pangolin {
-extern "C" const unsigned char AnonymousPro_ttf[];
-}
+extern const unsigned char AnonymousPro_ttf[];
 
 namespace basalt::vis {
 
@@ -48,9 +48,9 @@ using pangolin::KeyModifierCtrl;
 using pangolin::KeyModifierShift;
 using std::max;
 
-pangolin::GlFont SMALL_FONT(pangolin::AnonymousPro_ttf, 11);                                   // NOLINT(cert-err58-cpp)
+pangolin::GlFont SMALL_FONT(AnonymousPro_ttf, 11);                                             // NOLINT(cert-err58-cpp)
 pangolin::Params default_win_params({{std::string("default_font_size"), std::string("15")}});  // NOLINT(cert-err58-cpp)
-pangolin::GlFont FONT(pangolin::AnonymousPro_ttf, 14);                                         // NOLINT(cert-err58-cpp)
+pangolin::GlFont FONT(AnonymousPro_ttf, 14);                                                   // NOLINT(cert-err58-cpp)
 
 bool try_draw_image_text(pangolin::ImageView& view, float x, float y, const pangolin::GlText& text) {
   float xwin = -1;
@@ -872,8 +872,8 @@ void VIOUIBase::do_show_hessian(UIHessians& uih) {
   long xoff = xoffh + pad;            // Offset plus padding for ids
   long yoff = pad;                    // Offset plus padding for ids
 
-  float min = MAXFLOAT;
-  float max = -MAXFLOAT;
+  float min = FLT_MAX;
+  float max = -FLT_MAX;
   for (long y = 0; y < H->rows(); y++) {
     for (long x = 0; x < H->cols() + 1; x++) {
       float v = std::abs(x != H->cols() ? H->coeff(y, x) : b->coeff(y));

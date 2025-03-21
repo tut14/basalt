@@ -203,7 +203,7 @@ class LandmarkBlockAbsDynamic : public LandmarkBlock<Scalar> {
   virtual inline UILandmarkBlock getUILandmarkBlock() const override {
     size_t w = num_cols;
     size_t h = num_rows - 3;  // Do not copy damping rows, they are zeroed
-    auto s = std::make_shared<UILandmarkBlock::MatrixXfr>(storage.template block(0, 0, h, w).template cast<float>());
+    auto s = std::make_shared<UILandmarkBlock::MatrixXfr>(storage.template block<>(0, 0, h, w).template cast<float>());
     return UILandmarkBlock{s, lm_ptr->id};
   }
 

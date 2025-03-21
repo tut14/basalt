@@ -1415,9 +1415,9 @@ bool SqrtKeypointVioEstimator<Scalar_>::optimize() {
                 continue;
               }
               const auto& [idx, size] = aom.abs_order_map.at(ts);
-              H.template block(idx, 0, size, H.cols()).setZero();
+              H.template block<>(idx, 0, size, H.cols()).setZero();
               H.diagonal().template segment<POSE_SIZE>(idx).array() = 1e20;
-              b.template segment(idx, size).setZero();
+              b.template segment<>(idx, size).setZero();
             }
           }
 

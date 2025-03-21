@@ -49,9 +49,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <tuple>
 
-namespace pangolin {
-extern "C" const unsigned char AnonymousPro_ttf[];
-}
 namespace basalt::vis {
 extern pangolin::GlFont FONT;
 }
