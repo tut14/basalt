@@ -38,7 +38,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/io/dataset_io.h>
 #include <basalt/utils/filesystem.h>
 
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <opencv2/core/mat.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/videoio.hpp>
 
 namespace basalt {
 
@@ -49,6 +54,7 @@ class EurocVioDataset : public VioDataset {
 
   std::vector<int64_t> image_timestamps;
   std::unordered_map<int64_t, std::string> image_path;
+  std::vector<std::vector<cv::Mat>> videoImages;
 
   // vector of images for every timestamp
   // assumes vectors size is num_cams for every timestamp with null pointers for
@@ -66,7 +72,7 @@ class EurocVioDataset : public VioDataset {
   std::vector<std::unordered_map<int64_t, double>> exposure_times;
 
  public:
-  ~EurocVioDataset(){};
+  ~EurocVioDataset() {};
 
   size_t get_num_cams() const { return num_cams; }
 
@@ -83,48 +89,62 @@ class EurocVioDataset : public VioDataset {
     std::vector<ImageData> res(num_cams);
 
     for (size_t i = 0; i < num_cams; i++) {
-      std::string full_image_path = path + "/mav0/cam" + std::to_string(i) + "/data/" + image_path[t_ns];
+      std::string full_path = path + "/mav0/cam" + std::to_string(i);
+      std::string full_video_path = full_path + "/data.webm";
+      std::string full_image_path = full_path + "/data/" + image_path[t_ns];
+      cv::Mat img;
 
       if (fs::exists(full_image_path)) {
-        cv::Mat img = cv::imread(full_image_path, cv::IMREAD_UNCHANGED);
-
-        if (img.type() == CV_8UC1) {
-          res[i].img.reset(new ManagedImage<uint16_t>(img.cols, img.rows));
-
-          const uint8_t *data_in = img.ptr();
-          uint16_t *data_out = res[i].img->ptr;
-
-          size_t full_size = img.cols * img.rows;
-          for (size_t i = 0; i < full_size; i++) {
-            int val = data_in[i];
-            val = val << 8;
-            data_out[i] = val;
-          }
-        } else if (img.type() == CV_8UC3) {
-          res[i].img.reset(new ManagedImage<uint16_t>(img.cols, img.rows));
-
-          const uint8_t *data_in = img.ptr();
-          uint16_t *data_out = res[i].img->ptr;
-
-          size_t full_size = img.cols * img.rows;
-          for (size_t i = 0; i < full_size; i++) {
-            int val = data_in[i * 3];
-            val = val << 8;
-            data_out[i] = val;
-          }
-        } else if (img.type() == CV_16UC1) {
-          res[i].img.reset(new ManagedImage<uint16_t>(img.cols, img.rows));
-          std::memcpy(res[i].img->ptr, img.ptr(), img.cols * img.rows * sizeof(uint16_t));
-
-        } else {
-          std::cerr << "img.fmt.bpp " << img.type() << std::endl;
-          std::abort();
+        img = cv::imread(full_image_path, cv::IMREAD_UNCHANGED);
+      } else if (fs::exists(full_video_path)) {
+        size_t frameNumber = 0;
+        int64_t timeStamp = image_timestamps.front();
+        while (timeStamp < t_ns) {
+          frameNumber++;
+          timeStamp = image_timestamps[frameNumber];
         }
+        img = videoImages[i][frameNumber];
+      }
 
-        auto exp_it = exposure_times[i].find(t_ns);
-        if (exp_it != exposure_times[i].end()) {
-          res[i].exposure = exp_it->second;
+      if (img.empty()) {
+        std::cout << "Failed to load image!" << std::endl;
+        std::abort();
+      } else if (img.type() == CV_8UC1) {
+        res[i].img.reset(new ManagedImage<uint16_t>(img.cols, img.rows));
+
+        const uint8_t *data_in = img.ptr();
+        uint16_t *data_out = res[i].img->ptr;
+
+        size_t full_size = img.cols * img.rows;
+        for (size_t i = 0; i < full_size; i++) {
+          int val = data_in[i];
+          val = val << 8;
+          data_out[i] = val;
         }
+      } else if (img.type() == CV_8UC3) {
+        res[i].img.reset(new ManagedImage<uint16_t>(img.cols, img.rows));
+
+        const uint8_t *data_in = img.ptr();
+        uint16_t *data_out = res[i].img->ptr;
+
+        size_t full_size = img.cols * img.rows;
+        for (size_t i = 0; i < full_size; i++) {
+          int val = data_in[i * 3];
+          val = val << 8;
+          data_out[i] = val;
+        }
+      } else if (img.type() == CV_16UC1) {
+        res[i].img.reset(new ManagedImage<uint16_t>(img.cols, img.rows));
+        std::memcpy(res[i].img->ptr, img.ptr(), img.cols * img.rows * sizeof(uint16_t));
+
+      } else {
+        std::cerr << "img.fmt.bpp " << img.type() << std::endl;
+        std::abort();
+      }
+
+      auto exp_it = exposure_times[i].find(t_ns);
+      if (exp_it != exposure_times[i].end()) {
+        res[i].exposure = exp_it->second;
       }
     }
 
@@ -153,6 +173,14 @@ class EurocIO : public DatasetIoInterface {
 
     data->num_cams = i;
     data->path = path;
+
+    for (int j = 0; j < i; j++) {
+      std::string videoPath = path + "/mav0/cam" + std::to_string(j) + "/data.webm";
+      if (fs::exists(videoPath)) {
+        std::cout << "Reading video file at: " << videoPath << std::endl;
+        read_video_file(videoPath);
+      }
+    }
 
     read_image_timestamps(path + "/mav0/cam0/");
 
@@ -199,6 +227,26 @@ class EurocIO : public DatasetIoInterface {
 
       exposure_data[timestamp] = exposure_int * 1e-9;
     }
+  }
+
+  void read_video_file(const std::string &path) {
+    cv::VideoCapture cap(path);
+    if (!cap.isOpened()) {
+      std::cerr << "ERROR! Unable to open camera" << std::endl;
+      std::abort();
+    }
+    std::vector<cv::Mat> out(cap.get(cv::CAP_PROP_FRAME_COUNT));
+
+    for (size_t frameNumber = 0; frameNumber < out.size(); frameNumber++) {
+      // cap.set(cv::CAP_PROP_POS_FRAMES, frameNumber);
+      std::cout << "Reading Frame: " << frameNumber << std::endl;
+      if (!cap.read(out[frameNumber])) {
+        std::cerr << "Failed to read frame (num: " << frameNumber << ")" << std::endl;
+        std::abort();
+      }
+    }
+    cap.release();
+    data->videoImages.push_back(out);
   }
 
   void read_image_timestamps(const std::string &path) {
