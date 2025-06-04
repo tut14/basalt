@@ -94,6 +94,7 @@ using UIMAT = vis::UIMAT;
 
 struct basalt_vio_ui : vis::VIOUIBase {
   VioDatasetPtr vio_dataset;
+  VioDatasetPtr vio_dataset_ui;
   int64_t start_t_ns = -1;
 
   DataLog imu_data_log, vio_data_log, error_data_log;
@@ -242,7 +243,12 @@ struct basalt_vio_ui : vis::VIOUIBase {
 
       dataset_io->read(dataset_path);
 
+      basalt::DatasetIoInterfacePtr dataset_io_ui = basalt::DatasetIoFactory::getDatasetIo(dataset_type);
+
+      dataset_io_ui->read(dataset_path);
+
       vio_dataset = dataset_io->get_data();
+      vio_dataset_ui = dataset_io_ui->get_data();
       start_t_ns = vio_dataset->get_image_timestamps().front();
 
       show_frame.Meta().range[1] = vio_dataset->get_image_timestamps().size() - 1;
@@ -475,12 +481,11 @@ struct basalt_vio_ui : vis::VIOUIBase {
         }
 
         if (show_frame.GuiChanged()) {
+          auto frame_id = static_cast<size_t>(show_frame);
+          int64_t timestamp = vio_dataset->get_image_timestamps()[frame_id];
+
+          std::vector<basalt::ImageData> img_vec = vio_dataset_ui->get_image_data(timestamp);
           for (size_t cam_id = 0; cam_id < calib.intrinsics.size(); cam_id++) {
-            auto frame_id = static_cast<size_t>(show_frame);
-            int64_t timestamp = vio_dataset->get_image_timestamps()[frame_id];
-
-            std::vector<basalt::ImageData> img_vec = vio_dataset->get_image_data(timestamp);
-
             pangolin::GlPixFormat fmt;
             fmt.glformat = GL_LUMINANCE;
             fmt.gltype = GL_UNSIGNED_SHORT;

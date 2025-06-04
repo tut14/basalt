@@ -38,12 +38,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/io/dataset_io.h>
 #include <basalt/utils/filesystem.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <iterator>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/videoio.hpp>
+#include <string>
 
 namespace basalt {
 
@@ -54,7 +57,8 @@ class EurocVioDataset : public VioDataset {
 
   std::vector<int64_t> image_timestamps;
   std::unordered_map<int64_t, std::string> image_path;
-  std::vector<std::vector<cv::Mat>> videoImages;
+  std::vector<cv::VideoCapture> caps;
+  size_t frameNumber = 0;
 
   // vector of images for every timestamp
   // assumes vectors size is num_cams for every timestamp with null pointers for
@@ -72,7 +76,11 @@ class EurocVioDataset : public VioDataset {
   std::vector<std::unordered_map<int64_t, double>> exposure_times;
 
  public:
-  ~EurocVioDataset() {};
+  ~EurocVioDataset() {
+    for (cv::VideoCapture cap : caps) {
+      cap.release();
+    }
+  };
 
   size_t get_num_cams() const { return num_cams; }
 
@@ -96,14 +104,21 @@ class EurocVioDataset : public VioDataset {
 
       if (fs::exists(full_image_path)) {
         img = cv::imread(full_image_path, cv::IMREAD_UNCHANGED);
-      } else if (fs::exists(full_video_path)) {
-        size_t frameNumber = 0;
-        int64_t timeStamp = image_timestamps.front();
-        while (timeStamp < t_ns) {
-          frameNumber++;
-          timeStamp = image_timestamps[frameNumber];
+      } else if (caps.size() > 0 && fs::exists(full_video_path)) {
+        if (image_timestamps[frameNumber] != t_ns) {
+          auto lower = std::lower_bound(image_timestamps.begin(), image_timestamps.end(), t_ns);
+          frameNumber = std::distance(image_timestamps.begin(), lower);
         }
-        img = videoImages[i][frameNumber];
+
+        if (caps[i].get(cv::CAP_PROP_POS_FRAMES) != frameNumber) {
+          caps[i].set(cv::CAP_PROP_POS_FRAMES, frameNumber);
+        }
+
+        if (!caps[i].read(img)) {
+          std::cerr << "Failed to read frame (num: " << frameNumber << ") at timestamp " << t_ns << "." << std::endl;
+          std::abort();
+        }
+        frameNumber++;
       }
 
       if (img.empty()) {
@@ -175,10 +190,14 @@ class EurocIO : public DatasetIoInterface {
     data->path = path;
 
     for (int j = 0; j < i; j++) {
-      std::string videoPath = path + "/mav0/cam" + std::to_string(j) + "/data.webm";
-      if (fs::exists(videoPath)) {
-        std::cout << "Reading video file at: " << videoPath << std::endl;
-        read_video_file(videoPath);
+      std::string video_path = path + "/mav0/cam" + std::to_string(j) + "/data.webm";
+      if (fs::exists(video_path)) {
+        cv::VideoCapture cap{video_path};
+        data->caps.push_back(cap);
+        if (!cap.isOpened()) {
+          std::cerr << "ERROR! Unable to open camera at " << video_path << std::endl;
+          std::abort();
+        }
       }
     }
 
@@ -227,26 +246,6 @@ class EurocIO : public DatasetIoInterface {
 
       exposure_data[timestamp] = exposure_int * 1e-9;
     }
-  }
-
-  void read_video_file(const std::string &path) {
-    cv::VideoCapture cap(path);
-    if (!cap.isOpened()) {
-      std::cerr << "ERROR! Unable to open camera" << std::endl;
-      std::abort();
-    }
-    std::vector<cv::Mat> out(cap.get(cv::CAP_PROP_FRAME_COUNT));
-
-    for (size_t frameNumber = 0; frameNumber < out.size(); frameNumber++) {
-      // cap.set(cv::CAP_PROP_POS_FRAMES, frameNumber);
-      std::cout << "Reading Frame: " << frameNumber << std::endl;
-      if (!cap.read(out[frameNumber])) {
-        std::cerr << "Failed to read frame (num: " << frameNumber << ")" << std::endl;
-        std::abort();
-      }
-    }
-    cap.release();
-    data->videoImages.push_back(out);
   }
 
   void read_image_timestamps(const std::string &path) {
