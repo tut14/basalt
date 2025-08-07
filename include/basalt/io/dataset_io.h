@@ -66,10 +66,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace basalt {
 
+struct MotionVector{
+  float src_x, src_y;
+  float dst_x, dst_y;
+};
+
 struct ImageData {
   ImageData() : exposure(0) {}
 
   ManagedImage<uint16_t>::Ptr img;
+  std::shared_ptr<MotionVector> motion_vector;
   double exposure;
 };
 

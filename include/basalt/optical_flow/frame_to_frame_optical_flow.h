@@ -258,6 +258,11 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
         SE3 T_c1 = T_i1 * calib.T_i_c[i];
         SE3 T_c2 = T_i2 * calib.T_i_c[i];
         SE3 T_c1_c2 = T_c1.inverse() * T_c2;
+
+        if (pyramid->at(i).motion_vector != nullptr) {
+          new_transforms->tracking_guesses[i] = set_guesses_from_motion_vector();
+        }
+
         trackPoints(old_pyramid->at(i), pyramid->at(i),  //
                     transforms->keypoints[i], new_transforms->keypoints[i],
                     new_transforms->tracking_guesses[i],  //
@@ -323,7 +328,9 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 
         Eigen::Vector2f off{0, 0};
 
-        if (use_depth) {
+        if (!guesses.empty()) {
+          off = set_the_offset_from_guesses_somehow(guesses);
+        } else if (use_depth) {
           Vector2 t2_guess;
           Scalar _;
           calib.projectBetweenCams(t1, depth, t2_guess, _, T_c1_c2, cam1, cam2);
