@@ -41,9 +41,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "basalt/imu/imu_types.h"
 #include "basalt/imu/preintegration.h"
 #include "basalt/utils/common_types.h"
+#include "basalt/utils/eigen_utils.hpp"
 #include "basalt/utils/imu_types.h"
 #include "sophus/se3.hpp"
 
+#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Geometry/Transform.h>
+#include <Eigen/src/Geometry/Translation.h>
 #include <tbb/blocked_range.h>
 #include <tbb/concurrent_unordered_map.h>
 #include <tbb/parallel_for.h>
@@ -259,15 +263,22 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
         SE3 T_c2 = T_i2 * calib.T_i_c[i];
         SE3 T_c1_c2 = T_c1.inverse() * T_c2;
 
-        if (pyramid->at(i).motion_vector != nullptr) {
-          new_transforms->tracking_guesses[i] = set_guesses_from_motion_vector();
+        if (!new_img_vec->img_data[i].motion_vectors.empty()) {
+          set_guesses_from_motion_vector(transforms->keypoints[i], new_img_vec->img_data, new_transforms->tracking_guesses[i]);
         }
-
+				for(auto kp : transforms->keypoints[i])
+				{
+	  			std::cout << "Keypoint -> KeypointId: " << kp.first << " ,Keypoint: " << std::endl << kp.second.translation()<< std::endl;
+				}
+				for(auto it = new_transforms->tracking_guesses[i].begin(); it != new_transforms->tracking_guesses[i].end(); ++it)
+	  		{
+	    		std::cout << "guess -> KeypointId: " << it->first << ", Keypoint: " << std::endl << it->second.matrix() << std::endl;
+				}
         trackPoints(old_pyramid->at(i), pyramid->at(i),  //
                     transforms->keypoints[i], new_transforms->keypoints[i],
                     new_transforms->tracking_guesses[i],  //
                     new_img_vec->masks.at(i), new_img_vec->masks.at(i), T_c1_c2, i, i);
-      }
+			}
 
       transforms = new_transforms;
       transforms->input_images = new_img_vec;
@@ -286,6 +297,26 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 
     frame_counter++;
   }
+
+  void set_guesses_from_motion_vector(const Keypoints& keypoint_map, const std::vector<MotionVector> &mvs,size_t num_mvs, Keypoints& guesses)
+  {
+		for (const auto& [kpid, affine] : keypoint_map) {
+			// There is always maximum of one mv per block.
+			// The Blocks are either 8x8 or usually 16x16.
+			// The Motion Vector always starts in the middle of the block.
+			for(size_t i = 0; i < num_mvs; ++i){
+				float mv_x = mvs[i].src_x;
+				float mv_y = mvs[i].src_y;
+				float blockSize = mvs[i].height / 2;
+				if(affine.translation().x() >= mv_x - blockSize && affine.translation().x() <= mv_x + blockSize && 
+						affine.translation().y() >= mv_y - blockSize && affine.translation().y() <= mv_y + blockSize){
+					std::cout << "Found a movement Vector" << std::endl;
+					guesses.insert({kpid, Eigen::AffineCompact2f{Eigen::Translation2f{mv_x, mv_y}}});
+				}
+			}
+		}
+
+	}
 
   void trackPoints(const ManagedImagePyr<uint16_t>& pyr_1, const ManagedImagePyr<uint16_t>& pyr_2,  //
                    const Keypoints& keypoint_map_1, Keypoints& keypoint_map_2, Keypoints& guesses,  //
@@ -329,14 +360,15 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
         Eigen::Vector2f off{0, 0};
 
         if (!guesses.empty()) {
-          off = set_the_offset_from_guesses_somehow(guesses);
+					// might need to invert guess
+//          off = set_the_offset_from_guesses_somehow(guesses);
         } else if (use_depth) {
-          Vector2 t2_guess;
+	  			Vector2 t2_guess;
           Scalar _;
           calib.projectBetweenCams(t1, depth, t2_guess, _, T_c1_c2, cam1, cam2);
           off = t2 - t2_guess;
         }
-
+// t2 == t2_guess after this 
         t2 -= off;  // This modifies transform_2
 
         if (show_gui) {

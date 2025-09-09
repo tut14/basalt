@@ -38,8 +38,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <array>
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <cereal/archives/binary.hpp>
@@ -67,6 +69,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace basalt {
 
 struct MotionVector{
+	int width, height;
   float src_x, src_y;
   float dst_x, dst_y;
 };
@@ -75,7 +78,8 @@ struct ImageData {
   ImageData() : exposure(0) {}
 
   ManagedImage<uint16_t>::Ptr img;
-  std::shared_ptr<MotionVector> motion_vector;
+//	std::map<std::pair<float, float>, std::pair<float, float>> mv_map;
+	std::vector<MotionVector> motion_vectors;
   double exposure;
 };
 
