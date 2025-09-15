@@ -98,3 +98,5 @@ if (EIGEN3_INCLUDE_DIR MATCHES "^${CMAKE_SOURCE_DIR}.*")
     set_target_properties(${_target} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${_include_dirs_new}")
   endforeach()
 endif()
+
+add_subdirectory(motionvector-extraction EXCLUDE_FROM_ALL)

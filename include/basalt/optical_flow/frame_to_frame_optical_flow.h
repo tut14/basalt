@@ -264,7 +264,7 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
         SE3 T_c1_c2 = T_c1.inverse() * T_c2;
 
         if (!new_img_vec->img_data[i].motion_vectors.empty()) {
-          set_guesses_from_motion_vector(transforms->keypoints[i], new_img_vec->img_data, new_transforms->tracking_guesses[i]);
+          set_guesses_from_motion_vector(transforms->keypoints[i], new_img_vec->img_data[i].motion_vectors, new_transforms->tracking_guesses[i]);
         }
 				for(auto kp : transforms->keypoints[i])
 				{
@@ -298,8 +298,9 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
     frame_counter++;
   }
 
-  void set_guesses_from_motion_vector(const Keypoints& keypoint_map, const std::vector<MotionVector> &mvs,size_t num_mvs, Keypoints& guesses)
+  void set_guesses_from_motion_vector(const Keypoints& keypoint_map, const std::vector<MotionVector> &mvs, Keypoints& guesses)
   {
+		size_t num_mvs = mvs.size();
 		for (const auto& [kpid, affine] : keypoint_map) {
 			// There is always maximum of one mv per block.
 			// The Blocks are either 8x8 or usually 16x16.
@@ -307,11 +308,14 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 			for(size_t i = 0; i < num_mvs; ++i){
 				float mv_x = mvs[i].src_x;
 				float mv_y = mvs[i].src_y;
-				float blockSize = mvs[i].height / 2;
-				if(affine.translation().x() >= mv_x - blockSize && affine.translation().x() <= mv_x + blockSize && 
-						affine.translation().y() >= mv_y - blockSize && affine.translation().y() <= mv_y + blockSize){
-					std::cout << "Found a movement Vector" << std::endl;
-					guesses.insert({kpid, Eigen::AffineCompact2f{Eigen::Translation2f{mv_x, mv_y}}});
+				float blockSpace = mvs[i].height / 2;
+				if(affine.translation().x() >= mv_x - blockSpace && affine.translation().x() <= mv_x + blockSpace && 
+						affine.translation().y() >= mv_y - blockSpace && affine.translation().y() <= mv_y + blockSpace){
+					std::cout << "Found movement Vector for keypoint " << kpid << std::endl << affine.matrix() << std::endl;
+					Eigen::AffineCompact2f guess = affine;
+					guess.translation() = Eigen::Vector2f{mv_x, mv_y};
+					std::cout << "Guess for " << kpid << " is:" << std::endl << guess.matrix() << std::endl; 
+					guesses.insert({kpid, guess});
 				}
 			}
 		}
@@ -361,6 +365,7 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 
         if (!guesses.empty()) {
 					// might need to invert guess
+					off = guesses.find(id)->second.translation();
 //          off = set_the_offset_from_guesses_somehow(guesses);
         } else if (use_depth) {
 	  			Vector2 t2_guess;

@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <basalt/io/dataset_io.h>
 #include <basalt/utils/filesystem.h>
+#include <motionvector-extraction/video_cap.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -58,6 +59,7 @@ class EurocVioDataset : public VioDataset {
   std::vector<int64_t> image_timestamps;
   std::unordered_map<int64_t, std::string> image_path;
   std::vector<cv::VideoCapture> caps;
+	std::vector<VideoCap::VideoCap> mv_caps;
   size_t frameNumber = 0;
 
   // vector of images for every timestamp
