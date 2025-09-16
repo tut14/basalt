@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <basalt/io/dataset_io.h>
 #include <basalt/utils/filesystem.h>
-#include <motionvector-extraction/video_cap.h>
+#include <mvextractor/video_cap.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -82,6 +82,9 @@ class EurocVioDataset : public VioDataset {
     for (cv::VideoCapture cap : caps) {
       cap.release();
     }
+		for(VideoCap mv_cap : mv_caps){
+			mv_cap.release();
+		}
   };
 
   size_t get_num_cams() const { return num_cams; }
@@ -196,6 +199,13 @@ class EurocIO : public DatasetIoInterface {
       if (fs::exists(video_path)) {
         cv::VideoCapture cap{video_path};
         data->caps.push_back(cap);
+				VideoCap mv_cap{};
+				if(mv_cap.open(video_path)){
+					data->mv_caps.push_back();
+				}else{
+          std::cerr << "ERROR! Unable to open camera at " << video_path << std::endl;
+          std::abort();
+				}
         if (!cap.isOpened()) {
           std::cerr << "ERROR! Unable to open camera at " << video_path << std::endl;
           std::abort();

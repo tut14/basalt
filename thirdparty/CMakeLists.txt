@@ -9,6 +9,8 @@ add_subdirectory(ros EXCLUDE_FROM_ALL)
 add_subdirectory(apriltag EXCLUDE_FROM_ALL)
 target_compile_options(apriltag PRIVATE "-Wno-unused-private-field") # Fix external warning
 
+add_subdirectory(mvextractor EXCLUDE_FROM_ALL)
+
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Enable BUILD_SHARED_LIBS")
 set(BUILD_TESTS OFF CACHE BOOL "Enable BUILD_TESTS")
 set(BUILD_TOOLS OFF CACHE BOOL "Enable BUILD_TOOLS")
@@ -99,4 +101,3 @@ if (EIGEN3_INCLUDE_DIR MATCHES "^${CMAKE_SOURCE_DIR}.*")
   endforeach()
 endif()
 
-add_subdirectory(motionvector-extraction EXCLUDE_FROM_ALL)
