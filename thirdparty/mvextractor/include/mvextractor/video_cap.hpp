@@ -42,8 +42,6 @@ private:
     double frame_timestamp;
     bool is_rtsp;
 
-    int decode_packet(AVPacket *packet, AVCodecContext *fmt_ctx, AVFrame *frame);
-    void save_gray_frame(unsigned char *buf, int wrap, int xsize, int ysize, char *filename);
 public:
     VideoCap();
 

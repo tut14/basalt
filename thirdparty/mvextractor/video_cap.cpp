@@ -30,7 +30,7 @@ VideoCap::VideoCap()
 
 void VideoCap::release()
 {
-    std::cout << "Releasing the video capture!" << std::endl;
+//    std::cout << "Releasing the video capture!" << std::endl;
     if (this->img_convert_ctx != NULL)
     {
         sws_freeContext(this->img_convert_ctx);
@@ -90,7 +90,7 @@ bool VideoCap::open(const char *_url)
         return -1;
     }
 
-    std::cout << "Successfully opened format context. Format " << this->fmt_ctx->iformat->long_name << ", duration " << this->fmt_ctx->duration << std::endl;
+//    std::cout << "Successfully opened format context. Format " << this->fmt_ctx->iformat->long_name << ", duration " << this->fmt_ctx->duration << std::endl;
 
     if(avformat_find_stream_info(this->fmt_ctx, NULL) < 0)
     {
@@ -109,7 +109,7 @@ bool VideoCap::open(const char *_url)
         }
         if(localCodecParams->codec_type == AVMEDIA_TYPE_VIDEO)
         {
-            std::cout << "Found video stream with resolution " << localCodecParams->width << " by " << localCodecParams->height  << std::endl;
+//            std::cout << "Found video stream with resolution " << localCodecParams->width << " by " << localCodecParams->height  << std::endl;
             if(video_stream_idx != -1)
             {
                 std::cout << "ERROR currenty only a single video stream is supported" << std::endl;
@@ -187,74 +187,16 @@ bool VideoCap::open(const char *_url)
     return true;
 }
 
-int VideoCap::decode_packet(AVPacket *packet, AVCodecContext *fmt_ctx, AVFrame *frame)
-{
-    int response = avcodec_send_packet(this->video_dec_ctx, this->packet);
-
-    if (response < 0)
-    {
-        std::cout << "Error while sending a packet to the decoder" << std::endl;
-        return response;
-    }
-
-    while (true)
-    {
-        response = avcodec_receive_frame(this->video_dec_ctx, this->frame);
-        if (response == AVERROR(EAGAIN))
-        {
-            std::cout << "error while receiving frame with response: " << response << std::endl;
-            continue;
-        } else if(response == AVERROR_EOF) 
-        {
-            std::cout << "error while receiving frame with response: " << response << std::endl;
-            break;
-        } else if (response < 0)
-        {
-            std::cout << "Error while receiving a frame from the decoder" << std::endl;
-            return response;
-        }
-
-        if (response >= 0)
-        {
-            std::cout << "Received frame " << this->video_dec_ctx->frame_num << std::endl;
-            char frame_filename[1024];
-            snprintf(frame_filename, sizeof(frame_filename), "%s-%ld.pgm", "frame", this->video_dec_ctx->frame_num);
-            if (this->frame->format != AV_PIX_FMT_YUV420P)
-            {
-                std::cout << "Warning: the generated file may not be a grayscale image, but could e.g. be just the R component if the video format is RGB" << std::endl;
-            }
-            save_gray_frame(this->frame->data[0], this->frame->linesize[0], this->frame->width, this->frame->height, frame_filename);
-        }
-    }
-    return response;
-}
-
-void VideoCap::save_gray_frame(unsigned char *buf, int wrap, int xsize, int ysize, char *filename)
-{
-    std::cout <<"converting frame to grayscale" << std::endl;
-    FILE *f;
-    int i;
-    f = fopen(filename,"w");
-    // writing the minimal required header for a pgm file format
-    // portable graymap format -> https://en.wikipedia.org/wiki/Netpbm_format#PGM_example
-    fprintf(f, "P5\n%d %d\n%d\n", xsize, ysize, 255);
-
-    // writing line by line
-    for (i = 0; i < ysize; i++)
-        fwrite(buf + i * wrap, 1, xsize, f);
-    fclose(f);
-}
-
 bool VideoCap::grab()
 {
-    std::cout << "starting to grab frames" << std::endl;
+//    std::cout << "starting to grab frames" << std::endl;
     int count_errs = 0;
     const int max_number_of_attempts = 10;
 
     // make sure file is opened
     if (!this->fmt_ctx || !this->video_stream)
     {
-        std::cout << "Files is not opend properly"<< std::endl;
+        std::cout << "File is not opend properly"<< std::endl;
         return false;
     }
     // check if there is a frame left in the stream
@@ -293,7 +235,7 @@ bool VideoCap::grab()
             continue;
         }else
         {
-            std::cout << "Found video stream!" << std::endl; 
+//            std::cout << "Found video stream!" << std::endl; 
             if(avcodec_send_packet(this->video_dec_ctx, this->packet))
             {
                 std::cout << "Error while sending a packet to the decoder" << std::endl;
@@ -314,7 +256,7 @@ bool VideoCap::grab()
                 return false;
             } else if (response >= 0)
             {
-                std::cout << "Found a frame and decoded successfully!" << std::endl;
+//                std::cout << "Found a frame and decoded successfully!" << std::endl;
                 break;
             }
         }
@@ -338,7 +280,7 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
         this->picture.width != this->video_dec_ctx->width ||
         this->picture.height != this->video_dec_ctx->height ||
         this->picture.data == NULL) {
-        std::cout << "creating new Image convert context" << std::endl;
+//        std::cout << "creating new Image convert context" << std::endl;
         // Some sws_scale optimizations have some assumptions about alignment of data/step/width/height
         // Also we use coded_width/height to workaround problem with legacy ffmpeg versions (like n0.8)
         int buffer_width = this->video_dec_ctx->coded_width;
@@ -359,7 +301,7 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
             std::cout << "Failed to create image converter context!" << std::endl;
             return false;
         }
-        std::cout << "setting rgb frame values" << std::endl;
+//        std::cout << "setting rgb frame values" << std::endl;
         av_frame_unref(&(this->rgb_frame));
         this->rgb_frame.format = AV_PIX_FMT_BGR24;
         this->rgb_frame.width = buffer_width;
@@ -369,7 +311,7 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
             std::cout << "Error while allocating buffer for rgb frame!" << std::endl;
             return false;
         }
-        std::cout << "Resetting picture" << std::endl;
+//        std::cout << "Resetting picture" << std::endl;
         this->picture.width = this->video_dec_ctx->width;
         this->picture.height = this->video_dec_ctx->height;
         this->picture.data = this->rgb_frame.data[0];
@@ -378,7 +320,7 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
     }
 
     // change color space of frame
-    std::cout << "Changing color space of frame" << std::endl;
+//    std::cout << "Changing color space of frame" << std::endl;
     sws_scale(
         this->img_convert_ctx,
         this->frame->data,
@@ -388,7 +330,7 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
         this->rgb_frame.linesize
         );
 
-    std::cout << "Filling picture return values of " << &this->picture << std::endl;
+//    std::cout << "Filling picture return values of " << &this->picture << std::endl;
     *frame = this->picture.data;
     *width = this->picture.width;
     *height = this->picture.height;
@@ -397,15 +339,15 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
 
     // get motion vectors
     AVFrameSideData *sd = av_frame_get_side_data(this->frame, AV_FRAME_DATA_MOTION_VECTORS);
-    std::cout << "sd " << sd << std::endl;
+//    std::cout << "sd " << sd << std::endl;
     if (sd)
     {
-        std::cout << "Received side data of frame" << std::endl;
-        std::cout << "Getting movement vectors of side data" <<std::endl;
+//        std::cout << "Received side data of frame" << std::endl;
+//        std::cout << "Getting movement vectors of side data" <<std::endl;
         AVMotionVector *mvs = (AVMotionVector *)sd->data;
-        std::cout << "calculating number of movement vectors" << std::endl;
+//        std::cout << "calculating number of movement vectors" << std::endl;
         *num_mvs = sd->size / sizeof(*mvs);
-        std::cout << "Side data contains " << *num_mvs << " Movement vectors" << std::endl;
+//        std::cout << "Side data contains " << *num_mvs << " Movement vectors" << std::endl;
         if (*num_mvs > 0)
         {
             
@@ -416,7 +358,7 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
                 return false;
             }
 
-            std::cout << "storing movement vectors in allocated memory" << std::endl;
+//            std::cout << "storing movement vectors in allocated memory" << std::endl;
             // store the motion vectors in the allocated memory (C contiguous)
             for (MVS_DTYPE i = 0; i < *num_mvs; ++i)
             {
@@ -434,12 +376,12 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
             }
         }
     }
-    std::cout << "getting frame type and adding it to return value" << std::endl;
+//    std::cout << "getting frame type and adding it to return value" << std::endl;
     // get frame type (I, P, B, etc.) and create a null terminated c-string
     frame_type[0] = av_get_picture_type_char(this->frame->pict_type);
     frame_type[1] = '\0';
 
-    std::cout << "setting the timestamp" << std::endl;
+//    std::cout << "setting the timestamp" << std::endl;
     // return the timestamp which was computed previously in grab()
     *frame_timestamp = this->frame_timestamp;
 
