@@ -392,6 +392,6 @@ bool VideoCap::read(uint8_t **frame, int *step, int *width, int *height, int *cn
 {
     bool ret = this->grab();
     if (ret)
-	ret = this->retrieve(frame, step, width, height, cn, frame_type, motion_vectors, num_mvs, frame_timestamp);
+			ret = this->retrieve(frame, step, width, height, cn, frame_type, motion_vectors, num_mvs, frame_timestamp);
     return ret;
 }

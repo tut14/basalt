@@ -189,6 +189,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
     int num_threads = 0;
     bool use_imu = true;
     bool use_double = false;
+		bool use_mvs = false;
 
     CLI::App app{"Basalt CLI"};
 
@@ -208,6 +209,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
     app.add_option("--use-double", use_double, "Use double not float.");
     app.add_option("--deterministic", deterministic, "Make the pipeline output reproducible (some performance impact)");
     app.add_option("--max-frames", max_frames, "Limit number of frames to process from dataset (0 means unlimited)");
+		app.add_option("--use-mvs", use_mvs, "Use motion vectors for tracking guesses");
 
     try {
       app.parse(argc, argv);

@@ -263,7 +263,6 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
         SE3 T_c2 = T_i2 * calib.T_i_c[i];
         SE3 T_c1_c2 = T_c1.inverse() * T_c2;
 
-				std::cout << new_img_vec->img_data[i].motion_vectors[0].dst_x<< std::endl; 
         if (!(new_img_vec->img_data[i].motion_vectors.empty())) {
           set_guesses_from_motion_vector(transforms->keypoints[i], new_img_vec->img_data[i].motion_vectors, new_transforms->tracking_guesses[i]);
         }
@@ -301,7 +300,7 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 
   void set_guesses_from_motion_vector(const Keypoints& keypoint_map, const std::vector<MotionVector> &mvs, Keypoints& guesses)
   {
-		std::cout << "Using motion vectors for tracking" << std::endl;
+//		std::cout << "Using motion vectors for tracking" << std::endl;
 		size_t num_mvs = mvs.size();
 		for (const auto& [kpid, affine] : keypoint_map) {
 			// There is always maximum of one mv per block.
@@ -313,10 +312,10 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 				float blockSpace = mvs[i].height / 2;
 				if(affine.translation().x() >= mv_x - blockSpace && affine.translation().x() <= mv_x + blockSpace && 
 						affine.translation().y() >= mv_y - blockSpace && affine.translation().y() <= mv_y + blockSpace){
-					std::cout << "Found motion Vector for keypoint " << kpid << std::endl << affine.matrix() << std::endl;
+//					std::cout << "Found motion Vector for keypoint " << kpid << std::endl << affine.matrix() << std::endl;
 					Eigen::AffineCompact2f guess = affine;
 					guess.translation() = Eigen::Vector2f{mv_x, mv_y};
-					std::cout << "Guess for " << kpid << " is:" << std::endl << guess.matrix() << std::endl; 
+//					std::cout << "Guess for " << kpid << " is:" << std::endl << guess.matrix() << std::endl; 
 					guesses.insert({kpid, guess});
 				}
 			}
@@ -367,8 +366,10 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 
         if (!guesses.empty()) {
 					// might need to invert guess
-					off = guesses.find(id)->second.translation();
-//          off = set_the_offset_from_guesses_somehow(guesses);
+					Vector2 t2_guess = guesses.find(id)->second.translation();
+//					t2_guess.x() = t2_guess.x() * -1;
+//					t2_guess.y() = t2_guess.y() * -1;
+					off = t2 - t2_guess;
         } else if (use_depth) {
 	  			Vector2 t2_guess;
           Scalar _;
