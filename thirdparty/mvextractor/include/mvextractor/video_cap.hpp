@@ -47,9 +47,9 @@ public:
 
     void release();
 
-    bool open(const char *url);
+    int open(const char *url);
 
-    bool grab();
+    int grab();
 
     /** Decodes and returns the grabbed frame and motion vectors
     *
@@ -122,11 +122,11 @@ public:
     * @retval true if the grabbed video frame and motion vectors could be
     *    decoded and returned successfully, false otherwise.
     */
-    bool retrieve(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp);
+    int retrieve(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp);
 
     /** Convenience wrapper which combines a call of `grab` and `retrieve`.
     *
     *   The parameters and return value correspond to the `retrieve` method.
     */
-    bool read(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp);
+    int read(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp);
 };

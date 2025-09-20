@@ -34,9 +34,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <cfloat>
+#include "basalt/io/dataset_io.h"
+#include "basalt/vi_estimator/vio_estimator.h"
 
+#include <Eigen/src/Core/Matrix.h>
 #include <basalt/optical_flow/optical_flow.h>
 #include <basalt/utils/vis_utils.h>
+#include <pangolin/gl/gldraw.h>
 #include <pangolin/gl/glfont.h>
 #include <pangolin/var/var.h>
 
@@ -399,6 +403,31 @@ void VIOUIBase::do_show_masks(size_t cam_id) {
   for (const Rect& m : curr_vis_data->opt_flow_res->input_images->masks[cam_id].masks) {
     pangolin::glDrawRect(m.x, m.y, m.x + m.w, m.y + m.h);
   }
+}
+
+void VIOUIBase::do_show_motion_vectors(size_t cam_id){
+	const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
+	if (curr_vis_data == nullptr) return;
+	
+//	for(auto img : curr_vis_data->opt_flow_res->input_images->img_data){
+		std::vector<MotionVector> mv_vecs = curr_vis_data->opt_flow_res->input_images->img_data[cam_id].motion_vectors;
+
+		std::vector<Vector2f> lines;
+		std::vector<Vector2f> points;
+		for(auto vec : mv_vecs){
+			size_t tmp = lines.size();
+			lines.emplace_back(vec.src_x, vec.src_y);
+			lines.emplace_back(vec.dst_x, vec.dst_y);
+			if(lines.size() != tmp + 2){
+				std::cout << "only added one point to line at " << vec.src_x << ", " << vec.src_y << std::endl;
+		}
+			points.emplace_back(vec.dst_x, vec.dst_y);
+		}
+		float radius = 1.0F;
+	  glColor4f(1, 0.59, 0, 0.5);
+		pangolin::glDrawLines(lines);
+		glDrawCirclePerimeters(points, radius);
+//	}
 }
 
 void VIOUIBase::do_show_cam0_proj(size_t cam_id, double depth_guess) {

@@ -2,21 +2,21 @@
 
 VideoCap::VideoCap()
 {
-    this->opts = NULL;
-    this->codec = NULL;
-    this->fmt_ctx = NULL;
-    this->codec_params = NULL;
-    this->video_dec_ctx = NULL;
-    this->video_stream = NULL;
+    this->opts = nullptr;
+    this->codec = nullptr;
+    this->fmt_ctx = nullptr;
+    this->codec_params = nullptr;
+    this->video_dec_ctx = nullptr;
+    this->video_stream = nullptr;
     this->video_stream_idx = -1;
-    this->frame = NULL;
-    this->img_convert_ctx = NULL;
+    this->frame = nullptr;
+    this->img_convert_ctx = nullptr;
     this->frame_number = 0;
     this->frame_timestamp = 0.0;
     this->is_rtsp = false;
 
     memset(&(this->rgb_frame), 0, sizeof(this->rgb_frame));
-    this->picture = {NULL, 0, 0, 0, 0};
+    this->picture = {nullptr, 0, 0, 0, 0};
 // TODO: do I need rgb_frame alloc here?
     this->packet = av_packet_alloc();
     if (!this->packet)
@@ -31,52 +31,52 @@ VideoCap::VideoCap()
 void VideoCap::release()
 {
 //    std::cout << "Releasing the video capture!" << std::endl;
-    if (this->img_convert_ctx != NULL)
+    if (this->img_convert_ctx != nullptr)
     {
         sws_freeContext(this->img_convert_ctx);
-        this->img_convert_ctx = NULL;
+        this->img_convert_ctx = nullptr;
     }
-    if (this->frame != NULL) 
+    if (this->frame != nullptr) 
     {
         av_frame_free(&(this->frame));
-        this->frame = NULL;
+        this->frame = nullptr;
     }
 
     av_frame_unref(&(this->rgb_frame));
     memset(&(this->rgb_frame), 0, sizeof(this->rgb_frame));
-    this->picture = {NULL, 0, 0, 0, 0};
+    this->picture = {nullptr, 0, 0, 0, 0};
 
-        if (this->video_dec_ctx != NULL) {
+        if (this->video_dec_ctx != nullptr) {
         avcodec_free_context(&(this->video_dec_ctx));
-        this->video_dec_ctx = NULL;
+        this->video_dec_ctx = nullptr;
     }
 
-    if (this->fmt_ctx != NULL) {
+    if (this->fmt_ctx != nullptr) {
         avformat_close_input(&(this->fmt_ctx));
-        this->fmt_ctx = NULL;
+        this->fmt_ctx = nullptr;
     }
 
-    if (this->opts != NULL) {
+    if (this->opts != nullptr) {
         av_dict_free(&(this->opts));
-        this->opts = NULL;
+        this->opts = nullptr;
     }
 
     if (this->packet->data) {
         av_packet_unref(this->packet);
-        this->packet->data = NULL;
+        this->packet->data = nullptr;
     }
     av_packet_free(&(this->packet));
 
 }
 
-bool VideoCap::open(const char *_url)
+int VideoCap::open(const char *_url)
 {
-
+		int ret = 0;
     this->url = _url;
     this->fmt_ctx = avformat_alloc_context();
     if (!this->fmt_ctx)
     {
-        std::cout << "ERROR could not allocate memory for Format Context" << std::endl;
+        std::cerr << "ERROR could not allocate memory for Format Context" << std::endl;
         return -1;
     }
 
@@ -84,27 +84,28 @@ bool VideoCap::open(const char *_url)
     * In MV-extractor opts are used here for rtsp with tcp so might just
     * leave it as NULL.
     */
-    if(avformat_open_input(&this->fmt_ctx, this->url, NULL, &(this->opts))!= 0)
+		ret = avformat_open_input(&this->fmt_ctx, this->url, nullptr, &(this->opts));
+    if(ret != 0)
     {
-        std::cout << "ERROR could not open the file" << std::endl;
-        return -1;
+        std::cerr << "ERROR could not open the file" << std::endl;
+        return ret;
     }
 
 //    std::cout << "Successfully opened format context. Format " << this->fmt_ctx->iformat->long_name << ", duration " << this->fmt_ctx->duration << std::endl;
-
-    if(avformat_find_stream_info(this->fmt_ctx, NULL) < 0)
+		ret = avformat_find_stream_info(this->fmt_ctx, nullptr);
+    if(ret < 0)
     {
-        std::cout << "ERROR could not get the stream info";
-        return -1;
+        std::cerr << "ERROR could not get the stream info";
+        return ret;
     }
 
     for(u_int i = 0; i < this->fmt_ctx->nb_streams;i++){
         AVCodecParameters *localCodecParams = this->fmt_ctx->streams[i]->codecpar;
         const AVCodec *localCodec = avcodec_find_decoder(localCodecParams->codec_id);
 
-        if(localCodec == NULL)
+        if(localCodec == nullptr)
         {
-            std::cout << "ERROR unsupported codec!" << std::endl;
+            std::cerr << "ERROR unsupported codec!" << std::endl;
             continue;
         }
         if(localCodecParams->codec_type == AVMEDIA_TYPE_VIDEO)
@@ -112,7 +113,7 @@ bool VideoCap::open(const char *_url)
 //            std::cout << "Found video stream with resolution " << localCodecParams->width << " by " << localCodecParams->height  << std::endl;
             if(video_stream_idx != -1)
             {
-                std::cout << "ERROR currenty only a single video stream is supported" << std::endl;
+                std::cerr << "ERROR currenty only a single video stream is supported" << std::endl;
                 return -1;
             }else
             {
@@ -129,23 +130,23 @@ bool VideoCap::open(const char *_url)
 
     if(video_stream_idx == -1)
     {
-        std::cout << "File " << this->url << " does not contain a video stream!" << std::endl;
+        std::cerr << "File " << this->url << " does not contain a video stream!" << std::endl;
         return -1;
     }
     
     this->video_dec_ctx = avcodec_alloc_context3(this->codec);
     if(!this->video_dec_ctx)
     {
-        std::cout << "failed to allocated memory for AVCodecContext" << std::endl;
+        std::cerr << "failed to allocated memory for AVCodecContext" << std::endl;
         return -1;
     }
-
-    if (avcodec_parameters_to_context(this->video_dec_ctx, this->codec_params) < 0)
+		ret = avcodec_parameters_to_context(this->video_dec_ctx, this->codec_params);
+    if (ret < 0)
     {
-        std::cout << "failed to copy codec params to codec context" << std::endl;
-        return -1;
+        std::cerr << "failed to copy codec params to codec context" << std::endl;
+        return ret;
     }
-
+//TODO: add multithreading?
     // ffmpeg recommends no more than 16 threads
 //    this->video_dec_ctx->thread_count = std::min(std::thread::hardware_concurrency(), 16u);
 
@@ -158,10 +159,11 @@ bool VideoCap::open(const char *_url)
 
     av_dict_set(&(this->opts), "flags2", "+export_mvs", 0);
 
-    if (avcodec_open2(this->video_dec_ctx, this->codec, &(this->opts)) < 0)
+		ret = avcodec_open2(this->video_dec_ctx, this->codec, &(this->opts));
+    if (ret < 0)
     {
-        std::cout << "failed to open codec through avcodec_open2" << std::endl;
-        return -1;
+        std::cerr << "failed to open codec through avcodec_open2" << std::endl;
+        return ret;
     }
 
     this->video_stream = this->fmt_ctx->streams[this->video_stream_idx];
@@ -175,20 +177,21 @@ bool VideoCap::open(const char *_url)
 
     this->picture.width = this->video_dec_ctx->width;
     this->picture.height = this->video_dec_ctx->height;
-    this->picture.data = NULL;
+    this->picture.data = nullptr;
 
     this->frame = av_frame_alloc();
     if (!this->frame)
     {
-        std::cout << "failed to allocate memory for AVFrame" << std::endl;
+        std::cerr << "failed to allocate memory for AVFrame" << std::endl;
         return -1;
     }
 
-    return true;
+    return 0;
 }
 
-bool VideoCap::grab()
+int VideoCap::grab()
 {
+		int ret = 0;
 //    std::cout << "starting to grab frames" << std::endl;
     int count_errs = 0;
     const int max_number_of_attempts = 10;
@@ -196,14 +199,14 @@ bool VideoCap::grab()
     // make sure file is opened
     if (!this->fmt_ctx || !this->video_stream)
     {
-        std::cout << "File is not opend properly"<< std::endl;
-        return false;
+        std::cerr << "File is not opend properly"<< std::endl;
+        return -1;
     }
     // check if there is a frame left in the stream
     if (this->fmt_ctx->streams[this->video_stream_idx]->nb_frames > 0 && this->frame_number > this->fmt_ctx->streams[this->video_stream_idx]->nb_frames)
     {
-        std::cout << "No more frames to grab from video" << std::endl;
-        return false;
+        std::cerr << "No more frames to grab from video" << std::endl;
+        return -2;
     }
     int response = 0;
     av_packet_unref(this->packet);
@@ -215,9 +218,9 @@ bool VideoCap::grab()
         {
             if(readFramesRes == AVERROR(EOF) || readFramesRes == AVERROR_EOF)
             {
-                std::cout << "Reached the end of the file. Stopping now!" << std::endl;
+                std::cerr << "Reached the end of the file. Stopping now!" << std::endl;
 //                av_packet_unref(this->packet);
-                return false;
+                return readFramesRes;
             }
             continue;
         }
@@ -229,31 +232,32 @@ bool VideoCap::grab()
             count_errs++;
             if(count_errs > max_number_of_attempts)
             {
-                std::cout << "Tried " << max_number_of_attempts << " times to read frame. Stopping now!" << std::endl;
-                return false;
+                std::cerr << "Tried " << max_number_of_attempts << " times to read frame. Stopping now!" << std::endl;
+                return -1;
             }
             continue;
         }else
         {
-//            std::cout << "Found video stream!" << std::endl; 
-            if(avcodec_send_packet(this->video_dec_ctx, this->packet))
+//            std::cout << "Found video stream!" << std::endl;
+						ret = avcodec_send_packet(this->video_dec_ctx, this->packet);
+            if(ret < 0)
             {
-                std::cout << "Error while sending a packet to the decoder" << std::endl;
-                return false;
+                std::cerr << "Error while sending a packet to the decoder" << std::endl;
+                return ret;
             }
             response = avcodec_receive_frame(this->video_dec_ctx, this->frame);
             if(response == AVERROR(EOF) || readFramesRes == AVERROR_EOF)
             {
-                std::cout << "Reached the end of the file. Stopping now!" << std::endl;
-                return false; 
+                std::cerr << "Reached the end of the file. Stopping now!" << std::endl;
+                return response; 
             } else if (response == AVERROR(EAGAIN))
             {
                 std::cout << "Frame didn'thave enough data, trying next one" << std::endl;
                 continue;
             }else if (response < 0)
             {
-                std::cout << "Failed to decode packet with response: " << response << std::endl;
-                return false;
+                std::cerr << "Failed to decode packet with response: " << response << std::endl;
+                return response;
             } else if (response >= 0)
             {
 //                std::cout << "Found a frame and decoded successfully!" << std::endl;
@@ -265,21 +269,21 @@ bool VideoCap::grab()
     auto now = std::chrono::system_clock::now();
     this->frame_timestamp = std::chrono::duration<double>(now.time_since_epoch()).count();
     this->frame_number++;
-    return true;
+    return 0;
 }
 
-bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp)
+int VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp)
 {
     if (!(this->video_stream) || !(this->frame->data[0]))
     {
-        std::cout << "There is no video stream or the frame is empty!" << std::endl;
-        return false;
+        std::cerr << "There is no video stream or the frame is empty!" << std::endl;
+        return -1;
     }
 
-    if (this->img_convert_ctx == NULL ||
+    if (this->img_convert_ctx == nullptr ||
         this->picture.width != this->video_dec_ctx->width ||
         this->picture.height != this->video_dec_ctx->height ||
-        this->picture.data == NULL) {
+        this->picture.data == nullptr) {
 //        std::cout << "creating new Image convert context" << std::endl;
         // Some sws_scale optimizations have some assumptions about alignment of data/step/width/height
         // Also we use coded_width/height to workaround problem with legacy ffmpeg versions (like n0.8)
@@ -293,13 +297,13 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
                 buffer_width, buffer_height,
                 AV_PIX_FMT_BGR24,
                 SWS_BICUBIC,
-                NULL, NULL, NULL
+                nullptr, nullptr, nullptr
                 );
 
-        if (this->img_convert_ctx == NULL)
+        if (this->img_convert_ctx == nullptr)
         {
-            std::cout << "Failed to create image converter context!" << std::endl;
-            return false;
+            std::cerr << "Failed to create image converter context!" << std::endl;
+            return -1;
         }
 //        std::cout << "setting rgb frame values" << std::endl;
         av_frame_unref(&(this->rgb_frame));
@@ -308,8 +312,8 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
         this->rgb_frame.height = buffer_height;
         if (0 != av_frame_get_buffer(&(this->rgb_frame), 32))
         {
-            std::cout << "Error while allocating buffer for rgb frame!" << std::endl;
-            return false;
+            std::cerr << "Error while allocating buffer for rgb frame!" << std::endl;
+            return -1;
         }
 //        std::cout << "Resetting picture" << std::endl;
         this->picture.width = this->video_dec_ctx->width;
@@ -354,8 +358,8 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
             // allocate memory for motion vectors as 1D array
             if (!(*motion_vectors = (MVS_DTYPE *) malloc(*num_mvs * 10 * sizeof(MVS_DTYPE))))
             {
-                std::cout << "Failed to allocate space for motion_vectors!" << std::endl;
-                return false;
+                std::cerr << "Failed to allocate space for motion_vectors!" << std::endl;
+                return -1;
             }
 
 //            std::cout << "storing movement vectors in allocated memory" << std::endl;
@@ -385,13 +389,13 @@ bool VideoCap::retrieve(uint8_t **frame, int *step, int *width, int *height, int
     // return the timestamp which was computed previously in grab()
     *frame_timestamp = this->frame_timestamp;
 
-    return true;
+    return 0;
 }
 
-bool VideoCap::read(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp)
+int VideoCap::read(uint8_t **frame, int *step, int *width, int *height, int *cn, char *frame_type, MVS_DTYPE **motion_vectors, MVS_DTYPE *num_mvs, double *frame_timestamp)
 {
-    bool ret = this->grab();
-    if (ret)
+    int ret = this->grab();
+    if (ret >= 0)
 			ret = this->retrieve(frame, step, width, height, cn, frame_type, motion_vectors, num_mvs, frame_timestamp);
     return ret;
 }

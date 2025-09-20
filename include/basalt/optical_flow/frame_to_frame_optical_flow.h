@@ -304,7 +304,6 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 		size_t num_mvs = mvs.size();
 		for (const auto& [kpid, affine] : keypoint_map) {
 			// There is always maximum of one mv per block.
-			// The Blocks are either 8x8 or usually 16x16.
 			// The Motion Vector always starts in the middle of the block.
 			for(size_t i = 0; i < num_mvs; ++i){
 				float mv_x = mvs[i].src_x;
@@ -370,6 +369,8 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 //					t2_guess.x() = t2_guess.x() * -1;
 //					t2_guess.y() = t2_guess.y() * -1;
 					off = t2 - t2_guess;
+					std::string str = "found guess for (" + std::to_string(t2(0)) + ", " +  std::to_string(t2(1))+ ") and its offset is (" + std::to_string(off(0)) + "' " + std::to_string(off(1)) + ")\n";
+//					std::cout << str;
         } else if (use_depth) {
 	  			Vector2 t2_guess;
           Scalar _;
@@ -398,7 +399,10 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
 
         valid = trackPoint(pyr_2, pyr_1, transform_2, transform_1_recovered);
         if (!valid) continue;
-
+				
+				if(!guesses.empty()){
+//					std::cout << "Valid point found\n";
+				}
         Scalar dist2 = (t1 - t1_recovered).squaredNorm();
 
         if (dist2 < config.optical_flow_max_recovered_dist2) {

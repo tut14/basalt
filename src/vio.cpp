@@ -244,10 +244,12 @@ struct basalt_vio_ui : vis::VIOUIBase {
       basalt::DatasetIoInterfacePtr dataset_io = basalt::DatasetIoFactory::getDatasetIo(dataset_type);
 
       dataset_io->read(dataset_path);
+			dataset_io->get_data()->use_mvs = use_mvs;
 
       basalt::DatasetIoInterfacePtr dataset_io_ui = basalt::DatasetIoFactory::getDatasetIo(dataset_type);
 
       dataset_io_ui->read(dataset_path);
+			dataset_io_ui->get_data()->use_mvs = false;
 
       vio_dataset = dataset_io->get_data();
       vio_dataset_ui = dataset_io_ui->get_data();
@@ -760,6 +762,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
     if (show_flow) do_show_flow(cam_id);
     if (show_highlights) do_show_highlights(cam_id);
     if (show_tracking_guess) do_show_tracking_guess_vio(cam_id, show_frame, vio_dataset, vis_map);
+		if (show_motion_vectors) do_show_motion_vectors(cam_id);
     if (show_matching_guess) do_show_matching_guesses(cam_id);
     if (show_recall_guess) do_show_recall_guesses(cam_id);
     if (show_masks) do_show_masks(cam_id);
