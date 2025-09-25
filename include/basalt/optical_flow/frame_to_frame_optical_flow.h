@@ -298,29 +298,33 @@ class FrameToFrameOpticalFlow : public OpticalFlowTyped<Scalar, Pattern> {
     frame_counter++;
   }
 
-  void set_guesses_from_motion_vector(const Keypoints& keypoint_map, const std::vector<MotionVector> &mvs, Keypoints& guesses)
-  {
-//		std::cout << "Using motion vectors for tracking" << std::endl;
-		size_t num_mvs = mvs.size();
-		for (const auto& [kpid, affine] : keypoint_map) {
-			// There is always maximum of one mv per block.
-			// The Motion Vector always starts in the middle of the block.
-			for(size_t i = 0; i < num_mvs; ++i){
-				float mv_x = mvs[i].src_x;
-				float mv_y = mvs[i].src_y;
-				float blockSpace = mvs[i].height / 2;
-				if(affine.translation().x() >= mv_x - blockSpace && affine.translation().x() <= mv_x + blockSpace && 
-						affine.translation().y() >= mv_y - blockSpace && affine.translation().y() <= mv_y + blockSpace){
-//					std::cout << "Found motion Vector for keypoint " << kpid << std::endl << affine.matrix() << std::endl;
-					Eigen::AffineCompact2f guess = affine;
-					guess.translation() = Eigen::Vector2f{mv_x, mv_y};
-//					std::cout << "Guess for " << kpid << " is:" << std::endl << guess.matrix() << std::endl; 
-					guesses.insert({kpid, guess});
-				}
-			}
-		}
+  void set_guesses_from_motion_vector(const Keypoints& keypoint_map, const std::vector<MotionVector>& mvs,
+                                      Keypoints& guesses) {
+    size_t num_mvs = mvs.size();
+    for (const auto& [kpid, affine] : keypoint_map) {
+      // There is always maximum of one mv per block.
+      // The Motion Vector always starts in the middle of the block.
+      for (size_t i = 0; i < num_mvs; ++i) {
+        float sx = mvs[i].src_x;
+        float sy = mvs[i].src_y;
+        float dx = mvs[i].dst_x;
+        float dy = mvs[i].dst_y;
+        float bh = mvs[i].height / 2;
+        float bw = mvs[i].width / 2;
+        if (affine.translation().x() >= sx - bw && affine.translation().x() <= sx + bw &&
+            affine.translation().y() >= sy - bh && affine.translation().y() <= sy + bh) {
+          Eigen::AffineCompact2f guess = affine;
+          guess.translation() = affine.translation() + Eigen::Vector2f{dx - sx, dy - sy};
 
-	}
+          if (guess.translation().x() < 0 || guess.translation().y() < 0 || guess.translation().x() >= w ||
+              guess.translation().y() >= h)
+            continue;
+          guesses.insert({kpid, guess});
+          continue;
+        }
+      }
+    }
+  }
 
   void trackPoints(const ManagedImagePyr<uint16_t>& pyr_1, const ManagedImagePyr<uint16_t>& pyr_2,  //
                    const Keypoints& keypoint_map_1, Keypoints& keypoint_map_2, Keypoints& guesses,  //
