@@ -66,10 +66,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace basalt {
 
+struct MotionVector {
+  int width, height;
+  float src_x, src_y;
+  float dst_x, dst_y;
+};
+
 struct ImageData {
   ImageData() : exposure(0) {}
 
   ManagedImage<uint16_t>::Ptr img;
+  std::vector<MotionVector> motion_vectors;
   double exposure;
 };
 
@@ -124,7 +131,7 @@ class VioDataset {
   virtual const Eigen::aligned_vector<Sophus::SE3d> &get_gt_pose_data() const = 0;
   virtual int64_t get_mocap_to_imu_offset_ns() const = 0;
   virtual std::vector<ImageData> get_image_data(int64_t t_ns) = 0;
-
+  bool use_mvs = false;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 

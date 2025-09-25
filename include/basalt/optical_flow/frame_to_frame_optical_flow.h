@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 
 #include <sophus/se2.hpp>
@@ -258,10 +259,34 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
         SE3 T_c1 = T_i1 * calib.T_i_c[i];
         SE3 T_c2 = T_i2 * calib.T_i_c[i];
         SE3 T_c1_c2 = T_c1.inverse() * T_c2;
+
         trackPoints(old_pyramid->at(i), pyramid->at(i),  //
                     transforms->keypoints[i], new_transforms->keypoints[i],
                     new_transforms->tracking_guesses[i],  //
-                    new_img_vec->masks.at(i), new_img_vec->masks.at(i), T_c1_c2, i, i);
+                    new_img_vec->masks.at(i), new_img_vec->masks.at(i), T_c1_c2, i, i, false);
+
+        int before_count = new_transforms->keypoints[i].size();
+
+        bool has_mvs = !(new_img_vec->img_data[i].motion_vectors.empty());
+        if (has_mvs) {
+          // printf("mvs enabled, ");
+          Keypoints kpts_left{};
+          std::copy_if(transforms->keypoints[i].begin(),           //
+                       transforms->keypoints[i].end(),             //
+                       std::inserter(kpts_left, kpts_left.end()),  //
+                       [&](const std::pair<KeypointId, Keypoint>& kp) {
+                         return new_transforms->keypoints[i].count(kp.first) == 0;
+                       });
+          set_guesses_from_motion_vector(kpts_left, new_img_vec->img_data[i].motion_vectors,
+                                         new_transforms->tracking_guesses[i]);
+          trackPoints(old_pyramid->at(i), pyramid->at(i),  //
+                      kpts_left, new_transforms->keypoints[i],
+                      new_transforms->tracking_guesses[i],  //
+                      new_img_vec->masks.at(i), new_img_vec->masks.at(i), T_c1_c2, i, i, has_mvs);
+        }
+
+        int after_count = new_transforms->keypoints[i].size();
+        // printf("additional kpts: %d\n", after_count - before_count);
       }
 
       transforms = new_transforms;
@@ -282,9 +307,39 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
     frame_counter++;
   }
 
+  // TODO@christoph: Do this in trackPoints parallel_for
+  void set_guesses_from_motion_vector(const Keypoints& keypoint_map, const std::vector<MotionVector>& mvs,
+                                      Keypoints& guesses) {
+    size_t num_mvs = mvs.size();
+    for (const auto& [kpid, affine] : keypoint_map) {
+      // There is always maximum of one mv per block.
+      // The Motion Vector always starts in the middle of the block.
+      for (size_t i = 0; i < num_mvs; ++i) {
+        float sx = mvs[i].src_x;
+        float sy = mvs[i].src_y;
+        float dx = mvs[i].dst_x;
+        float dy = mvs[i].dst_y;
+        float bh = mvs[i].height / 2;
+        float bw = mvs[i].width / 2;
+        if (affine.translation().x() >= sx - bw && affine.translation().x() <= sx + bw &&
+            affine.translation().y() >= sy - bh && affine.translation().y() <= sy + bh) {
+          Eigen::AffineCompact2f guess = affine;
+          guess.translation() = affine.translation() + Eigen::Vector2f{dx - sx, dy - sy};
+
+          auto p = guess.translation();
+          if (p.x() < 0 || p.y() < 0 || p.x() >= w || p.y() >= h) continue;
+
+          guesses[kpid] = guess;
+          continue;
+        }
+      }
+    }
+  }
+
   void trackPoints(const ManagedImagePyr<uint16_t>& pyr_1, const ManagedImagePyr<uint16_t>& pyr_2,  //
                    const Keypoints& keypoint_map_1, Keypoints& keypoint_map_2, Keypoints& guesses,  //
-                   const Masks& masks1, const Masks& masks2, const SE3& T_c1_c2, size_t cam1, size_t cam2) const {
+                   const Masks& masks1, const Masks& masks2, const SE3& T_c1_c2, size_t cam1, size_t cam2,
+                   bool has_mvs) const {
     size_t num_points = keypoint_map_1.size();
 
     std::vector<KeypointId> ids;
@@ -299,12 +354,15 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
     }
 
     tbb::concurrent_unordered_map<KeypointId, Keypoint, std::hash<KeypointId>> result, guesses_tbb;
+    guesses_tbb.insert(guesses.begin(), guesses.end());
 
     bool tracking = cam1 == cam2;
     bool matching = cam1 != cam2;
     MatchingGuessType guess_type = config.optical_flow_matching_guess_type;
     bool match_guess_uses_depth = guess_type != MatchingGuessType::SAME_PIXEL;
-    const bool use_depth = tracking || (matching && match_guess_uses_depth);
+    bool has_imu = false;
+    const bool use_depth = (tracking && has_imu) || (matching && match_guess_uses_depth);
+    const bool use_mvs = !use_depth && has_mvs;
     const double depth = depth_guess;
 
     auto compute_func = [&](const tbb::blocked_range<size_t>& range) {
@@ -328,6 +386,9 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
           Scalar _;
           calib.projectBetweenCams(t1, depth, t2_guess, _, T_c1_c2, cam1, cam2);
           off = t2 - t2_guess;
+        } else if (use_mvs) {
+          auto git = guesses_tbb.find(id);
+          if (git != guesses_tbb.end()) off = t2 - git->second.translation();
         }
 
         t2 -= off;  // This modifies transform_2
@@ -363,9 +424,7 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
     tbb::blocked_range<size_t> range(0, num_points);
     tbb::parallel_for(range, compute_func);
 
-    keypoint_map_2.clear();
     keypoint_map_2.insert(result.begin(), result.end());
-    guesses.clear();
     guesses.insert(guesses_tbb.begin(), guesses_tbb.end());
   }
 
@@ -643,7 +702,7 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
       auto& pyri = pyramid->at(i);
       Keypoints kpts;
       SE3 T_c0_ci = calib.T_i_c[0].inverse() * calib.T_i_c[i];
-      trackPoints(pyr0, pyri, kpts0, kpts, mgs, ms0, ms, T_c0_ci, 0, i);
+      trackPoints(pyr0, pyri, kpts0, kpts, mgs, ms0, ms, T_c0_ci, 0, i, false);
       addKeypoints(i, kpts);
 
       // Update masks and detect features on area not overlapping with cam0

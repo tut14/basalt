@@ -274,14 +274,14 @@ void VIOUIBase::do_show_tracking_guess(size_t cam_id, size_t frame_id, const Vio
     guess_points.emplace_back(g);
   }
 
-  glColor4f(1, 0.59, 0, 0.9);
+  glColor4f(244/255.0f, 67/255.0f, 54/255.0f, 0.9); // RED
   glDrawCirclePerimeters(now_points, radius);
 
-  glColor4f(0.93, 0.42, 0, 0.3);
+  glColor4f(76/255.0f, 175/255.0f, 80/255.0f, 0.3); // GREEN
   pangolin::glDrawLines(prev_lines);
   glDrawCirclePerimeters(prev_points, radius);
 
-  glColor4f(1, 0.59, 0, 0.5);
+  glColor4f(33/255.f, 150/255.f, 243/255.f, 0.5); // BLUE
   pangolin::glDrawLines(guess_lines);
   glDrawCirclePerimeters(guess_points, radius);
 }
@@ -399,6 +399,31 @@ void VIOUIBase::do_show_masks(size_t cam_id) {
   for (const Rect& m : curr_vis_data->opt_flow_res->input_images->masks[cam_id].masks) {
     pangolin::glDrawRect(m.x, m.y, m.x + m.w, m.y + m.h);
   }
+}
+
+void VIOUIBase::do_show_motion_vectors(size_t cam_id){
+	const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
+	if (curr_vis_data == nullptr) return;
+
+//	for(auto img : curr_vis_data->opt_flow_res->input_images->img_data){
+		std::vector<MotionVector> mv_vecs = curr_vis_data->opt_flow_res->input_images->img_data[cam_id].motion_vectors;
+
+		std::vector<Vector2f> lines;
+		std::vector<Vector2f> points;
+		for(auto vec : mv_vecs){
+			size_t tmp = lines.size();
+			lines.emplace_back(vec.src_x, vec.src_y);
+			lines.emplace_back(vec.dst_x, vec.dst_y);
+			if(lines.size() != tmp + 2){
+				std::cout << "only added one point to line at " << vec.src_x << ", " << vec.src_y << std::endl;
+		}
+			points.emplace_back(vec.dst_x, vec.dst_y);
+		}
+		float radius = 1.0F;
+	  glColor4f(1, 0.59, 0, 0.5);
+		pangolin::glDrawLines(lines);
+		glDrawCirclePerimeters(points, radius);
+//	}
 }
 
 void VIOUIBase::do_show_cam0_proj(size_t cam_id, double depth_guess) {
