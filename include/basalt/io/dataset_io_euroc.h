@@ -62,9 +62,9 @@ class EurocVioDataset : public VioDataset {
   std::vector<int64_t> image_timestamps;
   std::unordered_map<int64_t, std::string> image_path;
   std::vector<cv::VideoCapture> caps;
-	std::vector<VideoCap> mv_caps;
+  std::vector<VideoCap> mv_caps;
   size_t frameNumber = 0;
-	size_t mv_frame_counter = 0;
+  size_t mv_frame_counter = 0;
 
   // vector of images for every timestamp
   // assumes vectors size is num_cams for every timestamp with null pointers for
@@ -104,67 +104,75 @@ class EurocVioDataset : public VioDataset {
 
   std::vector<ImageData> get_image_data(int64_t t_ns) override {
     std::vector<ImageData> res(num_cams);
-		if(!use_mvs && mv_caps.size() > 0){
-//			std::cout << "NOT using motion vectors for tracking guesses!" << std::endl;
-			for(VideoCap mv_cap : mv_caps){
-				mv_cap.release();
-			}
-			mv_caps.clear();
-		}
+    if (!use_mvs && mv_caps.size() > 0) {
+      //			std::cout << "NOT using motion vectors for tracking guesses!" << std::endl;
+      for (VideoCap mv_cap : mv_caps) {
+        mv_cap.release();
+      }
+      mv_caps.clear();
+    }
 
     for (size_t i = 0; i < num_cams; i++) {
-//			std::cout << "getting image data of cam " << i << std::endl;
+      //			std::cout << "getting image data of cam " << i << std::endl;
       std::string full_path = path + "/mav0/cam" + std::to_string(i);
       std::string full_video_path = full_path + "/data.mp4";
       std::string full_image_path = full_path + "/data/" + image_path[t_ns];
       cv::Mat img;
-//&& image_timestamps[frameNumber] == t_ns
-			if(mv_caps.size() > 0 && fs::exists(full_video_path) ) {
-				int ret = 0;
-//				std::cout << "Trying to read motion vectors of frame (num: " << frameNumber << ") at timestamp " << t_ns << " on cam " << i << "." << std::endl;
-				ret = mv_caps[i].grab();
-				if(ret < 0){
-					if(ret == AVERROR(EOF) || ret == AVERROR_EOF || ret == -2){
-						std::cout << "no more frames to read here" << std::endl;
-					}else{
-						std::cerr << "Failed to grab motion vectors of frame (num: " << frameNumber << ") at timestamp " << t_ns << "." << std::endl;
-						std::abort();
-					}
-				}else {
-					uint8_t *frame = nullptr;
-					int step = 0;
-					int width = 0;
-					int height = 0;
-					int cn = 0;
-					char *frame_type = new char[2]();
-					MVS_DTYPE *motion_vectors = nullptr;
-					MVS_DTYPE num_mvs = 0;
-					double frame_timestamp = 0;
-					ret = (mv_caps[i].retrieve(&frame, &step, &width, &height, &cn, frame_type, &motion_vectors, &num_mvs, &frame_timestamp));
-					if(ret < 0) {
-						if(ret == AVERROR(EOF) || ret == AVERROR_EOF){
-							std::cout << "no more frames to read here" << std::endl;
-						}else{
-							std::cerr << "Failed to read motion vectors of frame (num: " << frameNumber << ") at timestamp " << t_ns << " with response " << ret << "." << std::endl;
-							std::abort();
-						}
-					}else{
-	//						std::cout << "Successfully read " << num_mvs << " motion vectors of frame (num: " << frameNumber << ") at timestamp " << t_ns << "." << std::endl;
-						res[i].motion_vectors.reserve(num_mvs);
-						for(MVS_DTYPE j = 0; j < num_mvs * 10; j = j + 10) {
-							res[i].motion_vectors.push_back({width, height, static_cast<float>(motion_vectors[j + 3]), static_cast<float>(motion_vectors[j + 4]), static_cast<float>(motion_vectors[j + 5]), static_cast<float>(motion_vectors[j + 6])});
-						}
-						if(num_mvs > 0){
-							mv_frame_counter++;
-						}
-					}
-				}
-				// TODO: check if this releasing works properly
-				if(frameNumber >= image_timestamps.size() - 1) {
-					std::cout << "clearing motionvector captures after reading mvs of " << mv_frame_counter / 2 << " frames from a total " << frameNumber << " of frames!" << std::endl;
-					mv_caps.clear();
-				}
-			}
+      //&& image_timestamps[frameNumber] == t_ns
+      if (mv_caps.size() > 0 && fs::exists(full_video_path)) {
+        int ret = 0;
+        //				std::cout << "Trying to read motion vectors of frame (num: " << frameNumber <<
+        //") at timestamp " << t_ns << " on cam " << i << "." << std::endl;
+        ret = mv_caps[i].grab();
+        if (ret < 0) {
+          if (ret == AVERROR(EOF) || ret == AVERROR_EOF || ret == -2) {
+            std::cout << "no more frames to read here" << std::endl;
+          } else {
+            std::cerr << "Failed to grab motion vectors of frame (num: " << frameNumber << ") at timestamp " << t_ns
+                      << "." << std::endl;
+            std::abort();
+          }
+        } else {
+          uint8_t *frame = nullptr;
+          int step = 0;
+          int width = 0;
+          int height = 0;
+          int cn = 0;
+          char *frame_type = new char[2]();
+          MVS_DTYPE *motion_vectors = nullptr;
+          MVS_DTYPE num_mvs = 0;
+          double frame_timestamp = 0;
+          ret = (mv_caps[i].retrieve(&frame, &step, &width, &height, &cn, frame_type, &motion_vectors, &num_mvs,
+                                     &frame_timestamp));
+          if (ret < 0) {
+            if (ret == AVERROR(EOF) || ret == AVERROR_EOF) {
+              std::cout << "no more frames to read here" << std::endl;
+            } else {
+              std::cerr << "Failed to read motion vectors of frame (num: " << frameNumber << ") at timestamp " << t_ns
+                        << " with response " << ret << "." << std::endl;
+              std::abort();
+            }
+          } else {
+            //						std::cout << "Successfully read " << num_mvs << " motion vectors
+            // of frame (num: " << frameNumber << ") at timestamp " << t_ns << "." << std::endl;
+            res[i].motion_vectors.reserve(num_mvs);
+            for (MVS_DTYPE j = 0; j < num_mvs * 10; j = j + 10) {
+              res[i].motion_vectors.push_back(
+                  {width, height, static_cast<float>(motion_vectors[j + 3]), static_cast<float>(motion_vectors[j + 4]),
+                   static_cast<float>(motion_vectors[j + 5]), static_cast<float>(motion_vectors[j + 6])});
+            }
+            if (num_mvs > 0) {
+              mv_frame_counter++;
+            }
+          }
+        }
+        // TODO: check if this releasing works properly
+        if (frameNumber >= image_timestamps.size() - 1) {
+          std::cout << "clearing motionvector captures after reading mvs of " << mv_frame_counter / 2
+                    << " frames from a total " << frameNumber << " of frames!" << std::endl;
+          mv_caps.clear();
+        }
+      }
 
       if (fs::exists(full_image_path)) {
         img = cv::imread(full_image_path, cv::IMREAD_UNCHANGED);
@@ -185,7 +193,7 @@ class EurocVioDataset : public VioDataset {
         frameNumber++;
       }
 
-			if (img.empty()) {
+      if (img.empty()) {
         std::cout << "Failed to load image!" << std::endl;
         return {};
       } else if (img.type() == CV_8UC1) {
@@ -258,17 +266,17 @@ class EurocIO : public DatasetIoInterface {
       if (fs::exists(video_path)) {
         cv::VideoCapture cap{video_path};
         data->caps.push_back(cap);
-      	if (!cap.isOpened()) {
+        if (!cap.isOpened()) {
           std::cerr << "ERROR! Unable to open camera at " << video_path << std::endl;
           std::abort();
         }
-				VideoCap mv_cap{};
-				if(mv_cap.open(video_path.c_str()) >= 0){
-					data->mv_caps.push_back(mv_cap);
-				}else{
-					std::cerr << "ERROR! Unable to open camera for Motionvector extraction at " << video_path << std::endl;
-					std::abort();
-				}
+        VideoCap mv_cap{};
+        if (mv_cap.open(video_path.c_str()) >= 0) {
+          data->mv_caps.push_back(mv_cap);
+        } else {
+          std::cerr << "ERROR! Unable to open camera for Motionvector extraction at " << video_path << std::endl;
+          std::abort();
+        }
       }
     }
 
