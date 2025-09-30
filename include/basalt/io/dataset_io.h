@@ -67,6 +67,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace basalt {
 
 struct MotionVector {
+  int source;  // -1 for "past", +1 for "future"
   int width, height;
   float src_x, src_y;
   float dst_x, dst_y;
@@ -119,7 +120,7 @@ struct AprilgridCornersData {
 
 class VioDataset {
  public:
-  virtual ~VioDataset(){};
+  virtual ~VioDataset() {};
 
   virtual size_t get_num_cams() const = 0;
 
@@ -143,7 +144,7 @@ class DatasetIoInterface {
   virtual void reset() = 0;
   virtual VioDatasetPtr get_data() = 0;
 
-  virtual ~DatasetIoInterface(){};
+  virtual ~DatasetIoInterface() {};
 };
 
 typedef std::shared_ptr<DatasetIoInterface> DatasetIoInterfacePtr;

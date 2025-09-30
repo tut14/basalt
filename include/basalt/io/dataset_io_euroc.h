@@ -155,11 +155,16 @@ class EurocVioDataset : public VioDataset {
           } else {
             //						std::cout << "Successfully read " << num_mvs << " motion vectors
             // of frame (num: " << frameNumber << ") at timestamp " << t_ns << "." << std::endl;
-            res[i].motion_vectors.reserve(num_mvs);
+            res.at(i).motion_vectors.reserve(num_mvs);
             for (MVS_DTYPE j = 0; j < num_mvs * 10; j = j + 10) {
-              res[i].motion_vectors.push_back(
-                  {width, height, static_cast<float>(motion_vectors[j + 3]), static_cast<float>(motion_vectors[j + 4]),
-                   static_cast<float>(motion_vectors[j + 5]), static_cast<float>(motion_vectors[j + 6])});
+              int source = motion_vectors[j];
+              int bw = motion_vectors[j + 1];
+              int bh = motion_vectors[j + 2];
+              float sx = motion_vectors[j + 3];
+              float sy = motion_vectors[j + 4];
+              float dx = motion_vectors[j + 5];
+              float dy = motion_vectors[j + 6];
+              res.at(i).motion_vectors.push_back({source, bw, bh, sx, sy, dx, dy});
             }
             if (num_mvs > 0) {
               mv_frame_counter++;

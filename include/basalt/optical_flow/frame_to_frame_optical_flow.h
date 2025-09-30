@@ -286,7 +286,7 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
         }
 
         int after_count = new_transforms->keypoints[i].size();
-        // printf("additional kpts: %d\n", after_count - before_count);
+        printf("%lu: %d, ", frame_counter, after_count - before_count);
       }
 
       transforms = new_transforms;

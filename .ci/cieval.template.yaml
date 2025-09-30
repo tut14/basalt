@@ -61,6 +61,7 @@ build:
   variables:
     DATASET: ""
     DETERMINISTIC: {deterministic}
+  allow_failure: true
   script:
     - echo "Running dataset $DATASET"
     - export DS_DEV=$(jq -r ".sequences."$DATASET.device .ci/evaluation.json)

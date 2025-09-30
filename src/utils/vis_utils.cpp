@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <basalt/optical_flow/optical_flow.h>
 #include <basalt/utils/vis_utils.h>
+#include <pangolin/gl/gldraw.h>
 #include <pangolin/gl/glfont.h>
 #include <pangolin/var/var.h>
 
@@ -405,25 +406,38 @@ void VIOUIBase::do_show_motion_vectors(size_t cam_id) {
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
 
-  //	for(auto img : curr_vis_data->opt_flow_res->input_images->img_data){
   std::vector<MotionVector> mv_vecs = curr_vis_data->opt_flow_res->input_images->img_data[cam_id].motion_vectors;
-
   std::vector<Vector2f> lines;
   std::vector<Vector2f> points;
-  for (auto vec : mv_vecs) {
-    size_t tmp = lines.size();
+  for (const MotionVector& vec : mv_vecs) {
     lines.emplace_back(vec.src_x, vec.src_y);
     lines.emplace_back(vec.dst_x, vec.dst_y);
-    if (lines.size() != tmp + 2) {
-      std::cout << "only added one point to line at " << vec.src_x << ", " << vec.src_y << std::endl;
-    }
     points.emplace_back(vec.dst_x, vec.dst_y);
   }
   float radius = 1.0F;
   glColor4f(1, 0.59, 0, 0.5);
   pangolin::glDrawLines(lines);
   glDrawCirclePerimeters(points, radius);
-  //	}
+}
+
+void VIOUIBase::do_show_macro_blocks(size_t cam_id) {
+  const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
+  if (curr_vis_data == nullptr) return;
+  const uint8_t dark[4]{0x20, 0x40, 0x20, 0x20};
+  const uint8_t light[4]{0xA0, 0xC0, 0xA0, 0x20};
+  std::vector<MotionVector> mv_vecs = curr_vis_data->opt_flow_res->input_images->img_data[cam_id].motion_vectors;
+  for (const MotionVector& vec : mv_vecs) {
+    float dx = vec.dst_x;
+    float dy = vec.dst_y;
+    float bhw = vec.width / 2.0f;
+    float bhh = vec.height / 2.0f;
+    bool oddx = int(dx) % 32 < 16;
+    bool oddy = int(dy) % 32 < 16;
+    glColor4ubv(oddy == oddx ? dark : light);
+    pangolin::glDrawRect(dx - bhw, dy - bhh, dx + bhw, dy + bhh);
+    glColor4ubv(vec.source > 0 ? BLUE : vec.source < 0 ? GREEN : RED);
+    pangolin::glDrawRectPerimeter(dx - bhw, dy - bhh, dx + bhw, dy + bhh);
+  }
 }
 
 void VIOUIBase::do_show_cam0_proj(size_t cam_id, double depth_guess) {
