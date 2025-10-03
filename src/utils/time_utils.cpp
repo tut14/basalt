@@ -162,8 +162,8 @@ bool ExecutionStats::save_json(const std::string& path) const {
                meta.data_);
   }
 
-  constexpr bool save_as_json = false;
-  constexpr bool save_as_ubjson = true;
+  constexpr bool save_as_json = true;
+  constexpr bool save_as_ubjson = false;
 
   // save json
   if (save_as_json) {
