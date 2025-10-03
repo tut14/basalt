@@ -784,6 +784,7 @@ struct basalt_vio_ui : vis::VIOUIBase {
     if (show_flow) do_show_flow(cam_id);
     if (show_highlights) do_show_highlights(cam_id);
     if (show_tracking_guess) do_show_tracking_guess_vio(cam_id, show_frame, vio_dataset, vis_map);
+    if (show_mv_guess) do_show_mv_guess_vio(cam_id, show_frame, vio_dataset, vis_map);
     if (show_motion_vectors) do_show_motion_vectors(cam_id);
     if (show_macro_blocks) do_show_macro_blocks(cam_id);
     if (show_matching_guess) do_show_matching_guesses(cam_id);

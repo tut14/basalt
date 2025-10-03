@@ -214,6 +214,7 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
       transforms->keypoints.resize(num_cams);
       transforms->keypoint_responses.resize(num_cams);
       transforms->tracking_guesses.resize(num_cams);
+      transforms->mv_guesses.resize(num_cams);
       transforms->matching_guesses.resize(num_cams);
       transforms->recall_guesses.resize(num_cams);
       transforms->t_ns = t_ns;
@@ -249,6 +250,7 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
       new_transforms->keypoints.resize(num_cams);
       new_transforms->keypoint_responses.resize(num_cams);
       new_transforms->tracking_guesses.resize(num_cams);
+      new_transforms->mv_guesses.resize(num_cams);
       new_transforms->matching_guesses.resize(num_cams);
       new_transforms->recall_guesses.resize(num_cams);
       new_transforms->t_ns = t_ns;
@@ -279,6 +281,10 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
                       lost_kps, new_transforms->keypoints[i],
                       new_transforms->tracking_guesses[i],  //
                       new_img_vec->masks.at(i), new_img_vec->masks.at(i), T_c1_c2, i, i, has_mvs);
+
+          for (const auto& [kpid, _] : lost_kps)
+            if (new_transforms->keypoints[i].count(kpid) > 0)
+              new_transforms->mv_guesses[i][kpid] = new_transforms->tracking_guesses[i].at(kpid);
         }
 
         int after_count = new_transforms->keypoints[i].size();

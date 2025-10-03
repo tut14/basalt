@@ -287,6 +287,67 @@ void VIOUIBase::do_show_tracking_guess(size_t cam_id, size_t frame_id, const Vio
   glDrawCirclePerimeters(guess_points, radius);
 }
 
+void VIOUIBase::do_show_mv_guess(size_t cam_id, size_t frame_id, const VioVisualizationData::Ptr& prev_vis_data) {
+  const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
+  if (curr_vis_data == nullptr) return;
+
+  if (frame_id < 1) return;
+
+  auto new_kpts = curr_vis_data->opt_flow_res->keypoints[cam_id];
+  auto prev_kpts = prev_vis_data->opt_flow_res->keypoints[cam_id];
+  auto guess_obs = curr_vis_data->opt_flow_res->mv_guesses[cam_id];
+
+  std::vector<Vector2f> prev_lines;
+  std::vector<Vector2f> prev_points;
+  std::vector<Vector2f> guess_lines;
+  std::vector<Vector2f> guess_points;
+  std::vector<Vector2f> now_points;
+
+  prev_lines.reserve(new_kpts.size());
+  prev_points.reserve(new_kpts.size());
+  guess_lines.reserve(new_kpts.size());
+  guess_points.reserve(new_kpts.size());
+  now_points.reserve(new_kpts.size());
+
+  float radius = 3.0F;
+
+  // Draw mv guesses
+  for (auto& [kpid, guess] : guess_obs) {
+    if (prev_kpts.count(kpid) == 0) continue;
+
+    bool show = !filter_highlights || is_selected(highlights, kpid);
+    if (!show) continue;
+
+    auto n = new_kpts.at(kpid).translation();
+    auto p = prev_kpts.at(kpid).translation();
+    auto g = guess.translation();
+
+    now_points.emplace_back(n);
+
+    prev_lines.emplace_back(p);
+    prev_lines.emplace_back(n);
+    prev_points.emplace_back(p);
+
+    guess_lines.emplace_back(g);
+    guess_lines.emplace_back(n);
+    guess_points.emplace_back(g);
+  }
+
+  glColor4f(244 / 255.0f, 67 / 255.0f, 54 / 255.0f, 0.9);  // RED
+  glDrawCirclePerimeters(now_points, radius);
+
+  glColor4f(76 / 255.0f, 175 / 255.0f, 80 / 255.0f, 0.3);  // GREEN
+  pangolin::glDrawLines(prev_lines);
+  glDrawCirclePerimeters(prev_points, radius);
+
+  glColor4f(33 / 255.f, 150 / 255.f, 243 / 255.f, 0.8);  // BLUE
+  pangolin::glDrawLines(guess_lines);
+  glDrawCirclePerimeters(guess_points, radius);
+
+  glColor4f(100 / 255.f, 200 / 255.f, 243 / 255.f, 1.0);  // CYAN-ISH
+  FONT.Text("MV-recovered %d kps", guess_obs.size()).Draw(5, 60);
+}
+
 void VIOUIBase::do_show_recall_guesses(size_t cam_id) {
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
@@ -333,6 +394,18 @@ void VIOUIBase::do_show_tracking_guess_vio(size_t cam_id, size_t frame_id, const
   const VioVisualizationData::Ptr& prev_vis_data = prev_it->second;
 
   do_show_tracking_guess(cam_id, frame_id, prev_vis_data);
+}
+
+void VIOUIBase::do_show_mv_guess_vio(size_t cam_id, size_t frame_id, const VioDatasetPtr& vio_dataset,
+                                           const std::unordered_map<int64_t, VioVisualizationData::Ptr>& vis_map) {
+  if (frame_id < 1) return;
+
+  int64_t prev_ts = vio_dataset->get_image_timestamps().at(frame_id - 1);
+  auto prev_it = vis_map.find(prev_ts);
+  if (prev_it == vis_map.end()) return;
+  const VioVisualizationData::Ptr& prev_vis_data = prev_it->second;
+
+  do_show_mv_guess(cam_id, frame_id, prev_vis_data);
 }
 
 void VIOUIBase::do_show_matching_guesses(size_t cam_id) {
