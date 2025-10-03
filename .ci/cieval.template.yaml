@@ -76,7 +76,7 @@ build:
     - export FINAL_DS_PATH=$(cat get_dataset.log | tail -n 1)
     - echo $FINAL_DS_PATH
     - ls
-    - ./build/basalt_vio --show-gui 0 --deterministic $DETERMINISTIC --dataset-path $FINAL_DS_PATH --dataset-type euroc --cam-calib $DS_CALIB --config-path $DS_CONFIG --save-trajectory euroc --save-trajectory-fn tracking-$DATASET.csv 2>&1 | tee output-$DATASET.log
+    - ./build/basalt_vio --show-gui 0 --use-imu 0 --deterministic $DETERMINISTIC --dataset-path $FINAL_DS_PATH --dataset-type euroc --cam-calib $DS_CALIB --config-path $DS_CONFIG --save-trajectory euroc --save-trajectory-fn tracking-$DATASET.csv 2>&1 | tee output-$DATASET.log
     - if [ "$FINAL_DS_PATH" != "$DS_PATH" ]; then echo "Deleting $FINAL_DS_PATH"; rm -rf $FINAL_DS_PATH; fi
     - ls
     - export RESDIR=results/$CI_COMMIT_SHORT_SHA/$DATASET
