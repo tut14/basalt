@@ -269,18 +269,14 @@ class FrameToFrameOpticalFlow final : public OpticalFlowTyped<Scalar, Pattern> {
 
         bool has_mvs = !(new_img_vec->img_data[i].motion_vectors.empty());
         if (has_mvs) {
-          // printf("mvs enabled, ");
-          Keypoints kpts_left{};
-          std::copy_if(transforms->keypoints[i].begin(),           //
-                       transforms->keypoints[i].end(),             //
-                       std::inserter(kpts_left, kpts_left.end()),  //
-                       [&](const std::pair<KeypointId, Keypoint>& kp) {
-                         return new_transforms->keypoints[i].count(kp.first) == 0;
-                       });
-          set_guesses_from_motion_vector(kpts_left, new_img_vec->img_data[i].motion_vectors,
+          Keypoints lost_kps{};
+          for (const auto& [kpid, kp] : transforms->keypoints[i])
+            if (new_transforms->keypoints[i].count(kpid) == 0) lost_kps[kpid] = kp;
+
+          set_guesses_from_motion_vector(lost_kps, new_img_vec->img_data[i].motion_vectors,
                                          new_transforms->tracking_guesses[i]);
           trackPoints(old_pyramid->at(i), pyramid->at(i),  //
-                      kpts_left, new_transforms->keypoints[i],
+                      lost_kps, new_transforms->keypoints[i],
                       new_transforms->tracking_guesses[i],  //
                       new_img_vec->masks.at(i), new_img_vec->masks.at(i), T_c1_c2, i, i, has_mvs);
         }
