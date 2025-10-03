@@ -287,7 +287,7 @@ void VIOUIBase::do_show_tracking_guess(size_t cam_id, size_t frame_id, const Vio
   glDrawCirclePerimeters(guess_points, radius);
 }
 
-void VIOUIBase::do_show_mv_guess(size_t cam_id, size_t frame_id, const VioVisualizationData::Ptr& prev_vis_data) {
+void VIOUIBase::do_show_fallback_guess(size_t cam_id, size_t frame_id, const VioVisualizationData::Ptr& prev_vis_data) {
   const VioVisualizationData::Ptr curr_vis_data = get_curr_vis_data();
   if (curr_vis_data == nullptr) return;
 
@@ -295,7 +295,7 @@ void VIOUIBase::do_show_mv_guess(size_t cam_id, size_t frame_id, const VioVisual
 
   auto new_kpts = curr_vis_data->opt_flow_res->keypoints[cam_id];
   auto prev_kpts = prev_vis_data->opt_flow_res->keypoints[cam_id];
-  auto guess_obs = curr_vis_data->opt_flow_res->mv_guesses[cam_id];
+  auto guess_obs = curr_vis_data->opt_flow_res->fallback_guesses[cam_id];
 
   std::vector<Vector2f> prev_lines;
   std::vector<Vector2f> prev_points;
@@ -311,7 +311,7 @@ void VIOUIBase::do_show_mv_guess(size_t cam_id, size_t frame_id, const VioVisual
 
   float radius = 3.0F;
 
-  // Draw mv guesses
+  // Draw fallback guesses
   for (auto& [kpid, guess] : guess_obs) {
     if (prev_kpts.count(kpid) == 0) continue;
 
@@ -345,7 +345,7 @@ void VIOUIBase::do_show_mv_guess(size_t cam_id, size_t frame_id, const VioVisual
   glDrawCirclePerimeters(guess_points, radius);
 
   glColor4f(100 / 255.f, 200 / 255.f, 243 / 255.f, 1.0);  // CYAN-ISH
-  FONT.Text("MV-recovered %d kps", guess_obs.size()).Draw(5, 60);
+  FONT.Text("Fallback %d kps", guess_obs.size()).Draw(5, 60);
 }
 
 void VIOUIBase::do_show_recall_guesses(size_t cam_id) {
@@ -396,7 +396,7 @@ void VIOUIBase::do_show_tracking_guess_vio(size_t cam_id, size_t frame_id, const
   do_show_tracking_guess(cam_id, frame_id, prev_vis_data);
 }
 
-void VIOUIBase::do_show_mv_guess_vio(size_t cam_id, size_t frame_id, const VioDatasetPtr& vio_dataset,
+void VIOUIBase::do_show_fallback_guess_vio(size_t cam_id, size_t frame_id, const VioDatasetPtr& vio_dataset,
                                            const std::unordered_map<int64_t, VioVisualizationData::Ptr>& vis_map) {
   if (frame_id < 1) return;
 
@@ -405,7 +405,7 @@ void VIOUIBase::do_show_mv_guess_vio(size_t cam_id, size_t frame_id, const VioDa
   if (prev_it == vis_map.end()) return;
   const VioVisualizationData::Ptr& prev_vis_data = prev_it->second;
 
-  do_show_mv_guess(cam_id, frame_id, prev_vis_data);
+  do_show_fallback_guess(cam_id, frame_id, prev_vis_data);
 }
 
 void VIOUIBase::do_show_matching_guesses(size_t cam_id) {
