@@ -16,3 +16,4 @@ datasets
 cmake_modules/jammy-arm64-sysroot
 cmake_modules/bookworm-arm64-sysroot
 ds/
+results/
